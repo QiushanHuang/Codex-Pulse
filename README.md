@@ -190,6 +190,8 @@ use the [MIT License](LICENSE); bundled runtimes retain their
 [![English](https://img.shields.io/badge/Language-English-24292f)](#english)
 [![简体中文](https://img.shields.io/badge/语言-简体中文-1677ff)](#中文)
 
+![Codex Pulse：随时查看 Codex 工作状态](assets/branding/banner.svg)
+
 **把 Codex 的额度、任务状态与键盘提示放在一起，少切几次窗口。**
 Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在菜单栏、可置顶便签，
 以及可选的兼容键盘上。
