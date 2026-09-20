@@ -13,26 +13,48 @@
 
 ![Codex Pulse — your Codex activity, at a glance](assets/branding/banner.svg)
 
-**A native macOS workbench for Codex quota, local tasks and optional keyboard lighting.**
-See what is running, how much quota remains and what needs attention. Keep a compact
-card above your windows, or let a compatible keyboard display the same status.
-The workbench works independently of the keyboard.
+**Keep Codex quota, task status and keyboard signals in one place—and spend less time checking on them.**
+Codex Pulse is a native macOS companion that keeps background work visible in the
+menu bar, a pinnable card and, optionally, a compatible keyboard.
+
+## Why choose Codex Pulse?
+
+When Codex is working while you code, read or use another app, three questions keep
+coming up: **Is it still running? Does anything need attention? How much quota is left?**
+Pulse puts those answers within reach so you can keep your current work in view.
+
+| Common approach | Where it gets in the way | How Pulse helps |
+| --- | --- | --- |
+| Reopen Codex to check on background work | Repeated window switching interrupts the task in front of you | Glance at the menu bar or pin a compact status card above your other windows |
+| Check a remaining-quota percentage | A number alone gives little context about consumption or the next reset | See remaining quota, reset times, a one-hour trend and a consumption estimate together |
+| Check several task windows separately | It takes more effort to see what is running and what needs attention | Search and filter the latest 30 local unarchived tasks, then jump back to the relevant task |
+| Use a decorative keyboard preset | The lighting does not tell you about your Codex work | Turn a supported G913 into a quota bar, running-task display and completion/reset signal |
+
+**The difference is how these features work together:** quota and task information
+stay available as you move between the full workbench, sticky card and optional
+keyboard display. You can use the workbench without a keyboard, and enable hardware
+control only for a device you explicitly select.
+
+## Where it fits
+
+- **Work in an editor or browser while a task runs.** Keep the sticky card nearby and
+  return to Codex when a turn ends or a task needs attention.
+- **Plan your next stretch of work.** Check remaining quota, its recent consumption
+  and the next reset before deciding what to run next. Estimates reflect recent
+  samples; they are not a guarantee of how long future work will last.
+- **Make a desk setup useful.** Give a compatible keyboard meaningful work signals,
+  then personalize the remaining regions with 48 presets, 10 palettes and eight zones.
+
+Native SwiftUI interface · Local settings and history · Optional keyboard linking ·
+Python and Node.js included in the download.
+
+**[Download for Apple Silicon](https://github.com/QiushanHuang/Codex-Pulse/releases/latest)**
+· [Read the quick-start guide](#start-here)
 
 ![Codex Pulse workbench](docs/images/workbench.png)
 
 *Previews use synthetic demo data. The application currently uses a Chinese interface;
 this README and the operating guides are available in English and Chinese.*
-
-## Why Codex Pulse
-
-| What you need | What Codex Pulse provides |
-| --- | --- |
-| Quota without opening another task | Menu-bar indicator, reset times, one-hour trends and estimated consumption |
-| A view of current work | Search and status filters for the latest 30 local, unarchived Codex tasks |
-| A small persistent display | Resizable sticky mode, optional pinning and a shortcut back to the workbench |
-| Status away from the screen | F1–F10 quota bar, task animations and completion/reset signals on a supported G913 |
-| A keyboard that feels personal | 48 lighting presets, 10 palettes, eight zones and an offline design preview |
-| Local control | Local settings/history, explicit device selection and recovery of temporary lighting control |
 
 ## Install
 
@@ -162,25 +184,45 @@ use the [MIT License](LICENSE); bundled runtimes retain their
 [![English](https://img.shields.io/badge/Language-English-24292f)](#english)
 [![简体中文](https://img.shields.io/badge/语言-简体中文-1677ff)](#中文)
 
-**面向 Codex 额度、本机任务与可选键盘联动的原生 macOS 工作台。**
-查看哪些任务在运行、还剩多少额度、哪些状态需要关注；切换到可置顶的便签，
-或让兼容键盘显示相同状态。没有键盘也能独立使用工作台。
+**把 Codex 的额度、任务状态与键盘提示放在一起，少切几次窗口。**
+Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在菜单栏、可置顶便签，
+以及可选的兼容键盘上。
+
+### 为什么需要它，为什么选它？
+
+让 Codex 在后台工作时，你可能正在写代码、读文档或处理另一件事，却总想确认：
+**任务还在跑吗？有没有需要处理的状态？额度还剩多少？**
+Pulse 把这些信息放到随时能看到的位置，让你继续专注于眼前的工作。
+
+| 常见做法 | 使用中的不便 | Pulse 如何改善 |
+| --- | --- | --- |
+| 反复打开 Codex 查看后台状态 | 来回切换窗口，打断正在做的事 | 菜单栏快速查看，或把紧凑便签置顶在其他窗口上方 |
+| 只看一个剩余额度百分比 | 难以同时判断消耗速度和下次重置时间 | 在一起查看剩余额度、重置时间、近一小时趋势和消耗估计 |
+| 分别打开多个任务确认进展 | 不容易快速找到运行中或需要关注的任务 | 集中搜索、筛选本机最近 30 个未归档任务，再跳回对应任务 |
+| 使用装饰性的键盘灯效 | 灯光好看，却不能告诉你 Codex 的工作状态 | 让兼容 G913 显示额度条、运行任务动画，以及结束和重置提示 |
+
+**它的特点在于把这些功能连起来：**完整工作台用于集中查看，便签用于伴随工作，
+兼容键盘用于灯光提示，围绕同一组额度与任务信息协作。
+没有键盘也能使用工作台；需要联动时，再明确选择一台受支持设备。
+
+### 哪些场景适合用？
+
+- **任务在跑，你继续写代码或看资料。** 把便签放在旁边，看到轮次结束或需要关注的状态后，
+  再回到 Codex 处理。
+- **开始下一段工作前，先看看额度。** 同时查看剩余额度、近期消耗和重置时间，帮助安排下一步。
+  消耗估计基于近期样本，不保证未来工作一定能持续相同时间。
+- **让桌面上的键盘多一点用途。** 用灯光表示工作状态，再用 48 个预设、10 组色板和八区亮度
+  调整其他区域，把状态提示与日常配色放在同一套设置里。
+
+原生 SwiftUI 界面 · 配置与历史本地保存 · 键盘联动可选 · 下载包内置 Python 与 Node.js。
+
+**[下载 Apple Silicon 版本](https://github.com/QiushanHuang/Codex-Pulse/releases/latest)**
+· [查看快速开始](#快速开始)
 
 ![Codex Pulse 工作台，使用模拟数据](docs/images/workbench.png)
 
 *展示图使用模拟数据。应用目前以中文为主，README 与操作文档提供中英说明。
 顶部语言徽标直接跳到本页中文区域，不会打开另一个 Markdown 文件。*
-
-### 能做什么
-
-| 使用场景 | 功能 |
-| --- | --- |
-| 随时查看额度 | 菜单栏状态、预计重置时间、近一小时趋势与消耗估计 |
-| 跟踪手头任务 | 本机最近 30 个未归档会话，支持搜索、状态筛选与跳回 Codex |
-| 保留小型状态窗 | 可调整大小的便签、置顶开关、一键返回完整工作台 |
-| 用键盘显示进度 | G913 的 F1–F10 额度条、小键盘任务动画、结束与重置提醒 |
-| 自定义灯效 | 48 个预设、10 组色板、八区亮度及离线设计预览 |
-| 保留本地控制 | 本机配置与历史、明确选择设备、临时灯光控制恢复机制 |
 
 ### 安装
 
