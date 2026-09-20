@@ -1,0 +1,27 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Python regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Node regression tests (no hardware)
+        run: node --test tests/*.test.mjs
+      - name: Native Swift checks
+        run: python3 scripts/test_swift.py
+      - name: Build app and WidgetKit extension
+        run: python3 scripts/build_macos.py
+      - name: Verify bundle integrity
+        run: codesign --verify --deep --strict "build/Codex Pulse.app"

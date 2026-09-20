@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
+<title id="title">Codex Pulse</title><desc id="desc">Your Codex activity, at a glance. Native macOS workbench with optional keyboard lighting.</desc>
+<rect width="1200" height="340" rx="24" fill="#0e1317"/>
+<g transform="translate(38 23) scale(.29)">
+<path d="M216 458H324L388 312L490 580L586 266L656 458H808" fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M338 581A174 174 0 0 0 686 581" fill="none" stroke="#2b3d40" stroke-width="32" stroke-linecap="round"/>
+<path d="M338 581A174 174 0 0 0 635.037 704.037" fill="none" stroke="#5ee8ba" stroke-width="32" stroke-linecap="round"/>
+</g>
+<text x="368" y="139" fill="#f4f7f6" font-size="59" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-weight="650" letter-spacing="-2">Codex Pulse</text>
+<text x="370" y="187" fill="#b7c9c4" font-size="25" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif">Your Codex activity, at a glance.</text>
+<text x="371" y="244" fill="#5ee8ba" font-size="14" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" letter-spacing="2">MACOS · QUOTA · TASKS · KEYBOARD LIGHTING</text>
+</svg>

@@ -1,0 +1,26 @@
+# Build outputs, local research and runtime data
+build/
+macos/build/
+research/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.env.*
+*.log
+*.sqlite*
+*.xcuserstate
+xcuserdata/
+# Local implementation diaries and private reference material
+/design-qa.md
+/docs/design.md
+/docs/validation.md
+/docs/performance.md
+/docs/optimization-20260919.md
+/docs/input-authorization-validation.md
+/docs/lighting-styles-validation.md
+/docs/product-v2/
+/docs/ambient-lighting/
+# Earlier local brand experiments
+/assets/branding/*-v1.*
+/assets/branding/*-v2.*

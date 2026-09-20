@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Codex Pulse: waveform and quota arc">
+<rect x="64" y="64" width="896" height="896" rx="200" fill="#0e1317"/>
+<path d="M216 458H324L388 312L490 580L586 266L656 458H808" fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M338 581A174 174 0 0 0 686 581" fill="none" stroke="#2b3d40" stroke-width="32" stroke-linecap="round"/>
+<path d="M338 581A174 174 0 0 0 635.037 704.037" fill="none" stroke="#5ee8ba" stroke-width="32" stroke-linecap="round"/>
+</svg>
