@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — 2026-09-21
+
+- Add a persistent **Show in Dock** switch in General settings. Hiding the Dock icon keeps the menu-bar entry and background monitoring available.
+- Restore the selected dashboard or sticky view when reopening from the Dock; add native application-hide menu actions.
+- Load the canonical waveform-and-quota app icon explicitly to avoid stale Dock artwork.
+- Reuse the Widget card layout in sticky mode, with quota, consumption rate, reset time, trend and three recent tasks; retain pin and workbench controls.
+- Match the workbench and sticky dark backgrounds to the visible gray-teal Widget surface.
+- Fix the blue focus ring automatically appearing on **View Settings** when opening the dashboard. Deliberate keyboard navigation still shows native focus indicators.
+
+These changes are on the source branch; the downloadable 2.1.2 release assets have not been replaced.
+
+### 中文
+
+- 通用设置新增可保存的「在 Dock 中显示」开关；隐藏图标后保留菜单栏入口与后台监控。
+- 从 Dock 重新打开时恢复工作台或便签，并增加原生隐藏应用菜单入口。
+- 显式加载统一的波形与额度半环图标，避免 Dock 沿用旧图案。
+- 便签复用 Widget 的排版：额度圆环、消耗速度、重置时间、趋势与三条最近任务，保留置顶及返回工作台按钮。
+- 主界面和便签的深色背景按 Widget 实际显示的灰青色亮面校准。
+- 修复主窗口打开时「查看设置」自动出现蓝色焦点框；通过键盘主动导航时仍保留焦点提示。
+
+以上为源码分支更新，尚未替换 Releases 中的 2.1.2 下载包。
+
+
 ## 2.1.2 — 2026-09-20
 
 First public GitHub release of Codex Pulse.

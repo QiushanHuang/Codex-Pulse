@@ -28,6 +28,13 @@ import SwiftUI
   precondition(sticky.firstResponder === focus,"normal focus return preserves keyboard focus")
   coordinator.becameKey(.dashboard,window:main)
   precondition(hidden.last === sticky && coordinator.selected == .dashboard)
+  let mainFocus=FocusView();main.contentView=mainFocus;main.makeFirstResponder(mainFocus)
+  coordinator.present(.dashboard){_ in}
+  RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  precondition(main.firstResponder !== mainFocus,"dashboard opening clears automatic button focus")
+  main.makeFirstResponder(mainFocus)
+  coordinator.becameKey(.dashboard,window:main)
+  precondition(main.firstResponder === mainFocus,"dashboard focus return preserves deliberate keyboard focus")
   let lateMain=NSWindow(),lateSticky=KeyWindow()
   var lateHidden:[NSWindow]=[]
   let delayed=PulseWindowCoordinator(show:{_ in},hide:{lateHidden.append($0)})

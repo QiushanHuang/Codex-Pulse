@@ -11,7 +11,7 @@ enum PulseWindowMode:String {case dashboard,sticky}
     private var waitingForWindow=false
     private var pendingCreations:Set<PulseWindowMode>=[]
     private var cancelledCreations:[PulseWindowMode:Bool]=[:]
-    private var initialStickyFocus=true
+    private var initialFocus:Set<PulseWindowMode>=[.dashboard,.sticky]
     private let show:@MainActor (NSWindow)->Void
     private let hide:@MainActor (NSWindow)->Void
     init(show:@escaping @MainActor (NSWindow)->Void = {$0.deminiaturize(nil);$0.makeKeyAndOrderFront(nil)},hide:@escaping @MainActor (NSWindow)->Void = {$0.orderOut(nil)}) {
@@ -21,7 +21,8 @@ enum PulseWindowMode:String {case dashboard,sticky}
     private func opposite(_ mode:PulseWindowMode)->NSWindow? {mode == .dashboard ? sticky:dashboard}
     func register(_ mode:PulseWindowMode,window:NSWindow) {
         guard self.window(mode) !== window else{return}
-        if mode == .dashboard {dashboard=window} else {sticky=window;initialStickyFocus=true}
+        if mode == .dashboard {dashboard=window} else {sticky=window}
+        initialFocus.insert(mode)
         if pendingCreations.contains(mode),let selected,selected != mode {
             cancelledCreations[mode]=window.isExcludedFromWindowsMenu
             window.isExcludedFromWindowsMenu=true
@@ -57,7 +58,7 @@ enum PulseWindowMode:String {case dashboard,sticky}
         waitingForWindow=false;presenting=true
         if let other=opposite(mode){hide(other)}
         show(window);presenting=false
-        if mode == .sticky {initialStickyFocus=false;clearInitialFocus(window)}
+        initialFocus.remove(mode);clearInitialFocus(mode,window:window)
     }
     func becameKey(_ mode:PulseWindowMode,window:NSWindow) {
         guard !presenting,self.window(mode) === window else{return}
@@ -66,14 +67,14 @@ enum PulseWindowMode:String {case dashboard,sticky}
         let changing=selected != mode
         selected=mode;waitingForWindow=false
         if let other=opposite(mode){hide(other)}
-        if mode == .sticky && (changing || initialStickyFocus) {initialStickyFocus=false;clearInitialFocus(window)}
+        if changing || initialFocus.contains(mode) {initialFocus.remove(mode);clearInitialFocus(mode,window:window)}
     }
-    private func clearInitialFocus(_ window:NSWindow) {
-        // Opening the small view should not auto-focus the first toolbar button.
+    private func clearInitialFocus(_ mode:PulseWindowMode,window:NSWindow) {
+        // Opening either view should not auto-focus its first button.
         // Subsequent Tab navigation keeps the native visible focus indication.
         window.makeFirstResponder(nil)
         DispatchQueue.main.async {[weak self,weak window] in
-            guard let self,let window,self.selected == .sticky,self.sticky === window else{return}
+            guard let self,let window,self.selected == mode,self.window(mode) === window else{return}
             window.makeFirstResponder(nil)
         }
     }
