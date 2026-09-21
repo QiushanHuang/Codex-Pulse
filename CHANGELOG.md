@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-09-21
+## 2.1.3 — 2026-09-21
 
 - Add a persistent **Show in Dock** switch in General settings. Hiding the Dock icon keeps the menu-bar entry and background monitoring available.
 - Restore the selected dashboard or sticky view when reopening from the Dock; add native application-hide menu actions.
@@ -9,7 +9,7 @@
 - Match the workbench and sticky dark backgrounds to the visible gray-teal Widget surface.
 - Fix the blue focus ring automatically appearing on **View Settings** when opening the dashboard. Deliberate keyboard navigation still shows native focus indicators.
 
-These changes are on the source branch; the downloadable 2.1.2 release assets have not been replaced.
+Available as Apple Silicon DMG and ZIP downloads with bundled Python and Node.js. Ad-hoc signed; not Apple-notarized.
 
 ### 中文
 
@@ -20,7 +20,7 @@ These changes are on the source branch; the downloadable 2.1.2 release assets ha
 - 主界面和便签的深色背景按 Widget 实际显示的灰青色亮面校准。
 - 修复主窗口打开时「查看设置」自动出现蓝色焦点框；通过键盘主动导航时仍保留焦点提示。
 
-以上为源码分支更新，尚未替换 Releases 中的 2.1.2 下载包。
+提供内置 Python 和 Node.js 的 Apple Silicon DMG、ZIP 下载包。当前为 ad-hoc 签名，未经 Apple 公证。
 
 
 ## 2.1.2 — 2026-09-20

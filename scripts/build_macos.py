@@ -76,7 +76,7 @@ def main():
         shutil.copytree(ROOT / directory, resources / 'backend' / directory, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     run(shutil.which('node') or '/usr/local/bin/node', ROOT/'scripts/build_ambient_catalog.mjs', resources/'ambient-catalog.json')
-    common = {'CFBundleDevelopmentRegion':'en', 'CFBundleVersion':'11', 'CFBundleShortVersionString':'2.1.2',
+    common = {'CFBundleDevelopmentRegion':'en', 'CFBundleVersion':'12', 'CFBundleShortVersionString':'2.1.3',
               'LSMinimumSystemVersion':'14.0'}
     plist(app / 'Contents/Info.plist', {**common, 'CFBundleIdentifier':'local.qiushan.CodexPulse',
           'CFBundleName':'Codex Pulse', 'CFBundleDisplayName':'Codex Pulse', 'CFBundleExecutable':'CodexPulse',

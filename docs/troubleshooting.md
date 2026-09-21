@@ -6,7 +6,7 @@
 
 ## First launch
 
-The v2.1.2 arm64 download is ad-hoc signed, not signed with a Developer ID certificate
+The v2.1.3 arm64 download is ad-hoc signed, not signed with a Developer ID certificate
 and not Apple-notarized. Verify its SHA-256 against the same release's checksums, copy
 the app into Applications and attempt to open it. If macOS blocks it, look in System
 Settings → Privacy & Security for Open Anyway and confirm only for the downloaded
@@ -68,7 +68,7 @@ checked on a newer Apple Silicon Mac, not a clean macOS 14 installation.
 
 ### 首次打开
 
-v2.1.2 arm64 包为 ad-hoc 签名，没有 Developer ID 证书，也未经 Apple 公证。
+v2.1.3 arm64 包为 ad-hoc 签名，没有 Developer ID 证书，也未经 Apple 公证。
 核对同一 Release 的 SHA-256，复制到应用程序后尝试打开。
 如被阻止，在系统设置 → 隐私与安全性中查找“仍要打开”，只确认你主动下载的 Pulse。
 不同 macOS 和管理策略可能没有相同入口；受管理设备可能需要管理员处理。

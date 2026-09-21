@@ -30,7 +30,7 @@ is selected. Quit an app running from `build/` before overwriting that build.
 
 Some combinations of a newly installed Xcode and Command Line Tools SDK can produce
 missing Swift macro-plugin errors. Use a matching installed compiler/SDK pair. The
-public 2.1.2 app was compiled with CLT and MacOSX26.5.sdk; its extension was freshly built
+public 2.1.3 app was compiled with CLT and MacOSX26.5.sdk; its extension was freshly built
 using Xcode. For that specific setup, first build the extension normally, copy it to
 `build/Codex Pulse.app/Contents/PlugIns/CodexPulseWidget.appex`, then use:
 
@@ -59,7 +59,7 @@ compatibility, long-term power consumption or permission behavior on a different
 
 ## Reproduce the arm64 package
 
-The release packager needs **Python 3.12+**, a matching **2.1.2** app and extension,
+The release packager needs **Python 3.12+**, a matching **2.1.3** app and extension,
 `codesign`, `ditto`, `hdiutil` and network access for pinned upstream runtimes.
 It rejects an existing output directory to preserve previous artifacts.
 
@@ -76,7 +76,7 @@ xcodebuild -project macos/CodexPulse.xcodeproj -target CodexPulseWidget \
   CODE_SIGN_IDENTITY=-
 python3 scripts/package_release.py \
   --widget build/release/widget/CodexPulseWidget.appex \
-  --output build/release/v2.1.2
+  --output build/release/v2.1.3
 ```
 
 Downloads are pinned by URL and SHA-256. Extraction uses Python's `data` filter.
@@ -85,7 +85,7 @@ documentation, removes machine-specific input-authorization history, uses paths 
 to bundle resources, signs nested Mach-O files and verifies the bundle. It runs import
 and WebSocket smoke checks, then creates DMG, ZIP, manifest and checksums.
 
-Output defaults to `build/release/v2.1.2/`. `stage/` and `unpack/` are local staging
+Output defaults to `build/release/v2.1.3/`. `stage/` and `unpack/` are local staging
 folders, not separate release uploads. Publish only the named DMG, ZIP,
 `release-manifest.json` and `SHA256SUMS.txt`, alongside the tagged source archive.
 
@@ -107,7 +107,7 @@ configurations, logs, recovery records, task screenshots or downloaded developme
 The included recipe produces **ad-hoc signed, unnotarized** packages. It is not a
 Developer ID release pipeline. A notarized distribution additionally needs authorized
 Developer ID credentials, appropriate nested signing/entitlements, Apple notarization
-and stapling; those steps were not performed for 2.1.2. Check Gatekeeper behavior and
+and stapling; those steps were not performed for 2.1.3. Check Gatekeeper behavior and
 Input Monitoring on a clean Mac before claiming a seamless first-launch experience.
 No updater or automatic telemetry service is included.
 
@@ -147,7 +147,7 @@ Intel 源码编译尚未验证。
 
 ### 打包
 
-发行打包需要 **Python 3.12+**、匹配的 2.1.2 主应用与扩展，以及 macOS 打包工具和网络。
+发行打包需要 **Python 3.12+**、匹配的 2.1.3 主应用与扩展，以及 macOS 打包工具和网络。
 运行`python3 scripts/package_release.py`；也可用`--widget`指定新扩展，`--output`指定新目录。
 脚本拒绝覆盖已有输出，下载来源和 SHA-256 已固定，使用安全解包过滤器。
 
@@ -159,5 +159,5 @@ Intel 源码编译尚未验证。
 ### 签名边界
 
 当前流程生成 **ad-hoc 签名、未公证**包。正式 Developer ID 公证发布另需证书、适当的
-嵌套签名/权限、Apple notarization 和 stapling；2.1.2 没有执行这些步骤。
+嵌套签名/权限、Apple notarization 和 stapling；2.1.3 没有执行这些步骤。
 因此不能声称首次打开无提示或更新后永远无需重新授权。未提供自动更新或遥测服务。
