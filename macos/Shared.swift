@@ -45,7 +45,7 @@ let pulseMint = Color(nsColor:NSColor(name:nil) { appearance in
         NSColor(srgbRed:0.31,green:0.94,blue:0.73,alpha:1):NSColor(srgbRed:0.015,green:0.43,blue:0.32,alpha:1)
 })
 
-// The same dark canvas is used by WidgetKit, the workbench and sticky mode.
+// WidgetKit composites its own material over this source gradient.
 struct PulseWidgetBackground: View {
     var body: some View {
         LinearGradient(colors:[Color(red:0.055,green:0.11,blue:0.14),Color(red:0.04,green:0.065,blue:0.09)],
@@ -57,7 +57,17 @@ struct PulseWindowBackground: View {
     @Environment(\.colorScheme) private var scheme
     var body: some View {
         Group {
-            if scheme == .dark {PulseWidgetBackground()}
+            if scheme == .dark {
+                // Match the visible WidgetKit surface, not its uncomposited source.
+                // Sampled from the reference widget: upper ~42/53/60, lower ~23/34/39.
+                LinearGradient(colors:[
+                    Color(red:46.0/255,green:58.0/255,blue:65.0/255),
+                    Color(red:31.0/255,green:41.0/255,blue:48.0/255),
+                    Color(red:22.0/255,green:32.0/255,blue:37.0/255)
+                ],startPoint:.top,endPoint:.bottom)
+                .overlay(LinearGradient(colors:[.white.opacity(0.008),.black.opacity(0.025)],
+                                        startPoint:.leading,endPoint:.trailing))
+            }
             else {
                 LinearGradient(colors:[Color(red:0.95,green:0.97,blue:0.97),Color(red:0.89,green:0.93,blue:0.94)],
                                startPoint:.topLeading,endPoint:.bottomTrailing)
