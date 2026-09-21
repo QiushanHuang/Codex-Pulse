@@ -1,8 +1,7 @@
 import SwiftUI
 import AppKit
 
-private let workbenchSurface = Color(nsColor: .controlBackgroundColor)
-private let workbenchCanvas = Color(nsColor: .windowBackgroundColor)
+private let workbenchSurface = Color(nsColor: .controlBackgroundColor).opacity(0.72)
 
 struct WorkbenchShell: View {
     @ObservedObject var model: PulseModel
@@ -24,8 +23,9 @@ struct WorkbenchShell: View {
                 }
                 InputAttentionNotice(model:model).padding(.horizontal,28)
                 page.frame(maxWidth: .infinity, maxHeight: .infinity)
-            }.background(workbenchCanvas)
+            }
         }
+        .background(PulseWindowBackground())
         .frame(minWidth: 1024, idealWidth: 1280, minHeight: 700, idealHeight: 820)
         .tint(pulseMint)
         .preferredColorScheme(model.appearance.preferredScheme)
@@ -71,7 +71,7 @@ struct WorkbenchShell: View {
                 Text(model.snapshot.generatedAt > 0 ? "更新于 \(workbenchDate(model.snapshot.generatedAt))" : "等待首次数据")
                     .font(.caption2).foregroundStyle(.secondary)
             }.padding(20)
-        }.background(Color(nsColor: .underPageBackgroundColor))
+        }.background(Color(nsColor: .underPageBackgroundColor).opacity(0.35))
     }
 
     private func navigationGroup(_ title: String, routes: [WorkbenchRoute]) -> some View {

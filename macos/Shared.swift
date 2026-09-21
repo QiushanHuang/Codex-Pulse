@@ -45,6 +45,29 @@ let pulseMint = Color(nsColor:NSColor(name:nil) { appearance in
         NSColor(srgbRed:0.31,green:0.94,blue:0.73,alpha:1):NSColor(srgbRed:0.015,green:0.43,blue:0.32,alpha:1)
 })
 
+// Static, theme-aware illumination shared by the workbench and sticky window.
+// Gradients need no animation timer or expensive blur pass.
+struct PulseWindowBackground: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        GeometryReader { geometry in
+            let dark = scheme == .dark
+            ZStack {
+                LinearGradient(colors: dark ?
+                    [Color(red:0.12,green:0.16,blue:0.18), Color(red:0.065,green:0.085,blue:0.10)] :
+                    [Color(red:0.95,green:0.97,blue:0.97), Color(red:0.89,green:0.93,blue:0.94)],
+                    startPoint:.topLeading,endPoint:.bottomTrailing)
+                RadialGradient(colors:[Color(red:0.38,green:0.66,blue:0.67).opacity(dark ? 0.18:0.12),.clear],
+                    center:UnitPoint(x:0.15,y:0),startRadius:0,
+                    endRadius:max(geometry.size.width,geometry.size.height)*0.85)
+                RadialGradient(colors:[Color(red:0.20,green:0.57,blue:0.48).opacity(dark ? 0.075:0.06),.clear],
+                    center:.bottomTrailing,startRadius:0,
+                    endRadius:max(geometry.size.width,geometry.size.height)*0.65)
+            }
+        }.allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
 struct QuotaRing: View {
     let remaining: Double?
     let stale: Bool

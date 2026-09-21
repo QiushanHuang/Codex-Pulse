@@ -89,7 +89,7 @@ struct StickyDashboard:View {
             }.font(.system(size:10)).padding(.horizontal,16).padding(.vertical,9)
         }
         .frame(minWidth:320,idealWidth:360,maxWidth:440,minHeight:400,idealHeight:400,maxHeight:800)
-        .background(Color(nsColor:.windowBackgroundColor))
+        .background(PulseWindowBackground())
         .preferredColorScheme(model.appearance.preferredScheme).tint(pulseMint)
         .background(WindowModeRegistration(mode:.sticky,coordinator:model.windows).allowsHitTesting(false).accessibilityHidden(true))
         .background(StickyWindowAccessor(pinned:model.stickyPinned).allowsHitTesting(false).accessibilityHidden(true))
