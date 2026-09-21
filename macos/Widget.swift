@@ -21,7 +21,7 @@ struct WidgetContent: View {
     var body: some View {
         PulseCard(snapshot: entry.snapshot, compact: family == .systemSmall, expanded: family == .systemLarge)
             .containerBackground(for: .widget) {
-                LinearGradient(colors: [Color(red:0.055,green:0.11,blue:0.14),Color(red:0.04,green:0.065,blue:0.09)],startPoint:.topLeading,endPoint:.bottomTrailing)
+                PulseWidgetBackground()
             }
             .widgetURL(URL(string: "codexpulse://dashboard"))
             .environment(\.locale,Locale(identifier:"zh_CN"))

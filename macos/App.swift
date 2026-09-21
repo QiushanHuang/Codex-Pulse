@@ -247,7 +247,7 @@ struct CodexPulseApp: App {
             .defaultSize(width:1280,height:820)
         Window("Codex Pulse 便签",id:"sticky") {
             StickyDashboard(model:model)
-        }.defaultSize(width:360,height:400).windowResizability(.contentSize)
+        }.defaultSize(width:344,height:344).windowResizability(.contentSize)
         Window("Codex Pulse 设置",id:"settings") {
             PulseSettings(model:model).preferredColorScheme(model.appearance.preferredScheme)
         }

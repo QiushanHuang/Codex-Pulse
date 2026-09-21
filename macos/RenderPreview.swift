@@ -10,7 +10,7 @@ struct RenderPreview {
         for (name,width,height,compact,expanded) in [("small",164.0,164.0,true,false),("medium",344.0,164.0,false,false),("large",344.0,344.0,false,true)] {
             let view = PulseCard(snapshot:snapshot,compact:compact,expanded:expanded).padding(16)
                 .frame(width:width,height:height)
-                .background(LinearGradient(colors:[Color(red:0.055,green:0.11,blue:0.14),Color(red:0.04,green:0.065,blue:0.09)],startPoint:.topLeading,endPoint:.bottomTrailing))
+                .background(PulseWidgetBackground())
                 .clipShape(RoundedRectangle(cornerRadius:24))
                 .environment(\.colorScheme,.dark).environment(\.locale,Locale(identifier:"zh_CN"))
             let renderer=ImageRenderer(content:view);renderer.scale=2

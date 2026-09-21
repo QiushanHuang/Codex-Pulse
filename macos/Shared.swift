@@ -45,24 +45,22 @@ let pulseMint = Color(nsColor:NSColor(name:nil) { appearance in
         NSColor(srgbRed:0.31,green:0.94,blue:0.73,alpha:1):NSColor(srgbRed:0.015,green:0.43,blue:0.32,alpha:1)
 })
 
-// Static, theme-aware illumination shared by the workbench and sticky window.
-// Gradients need no animation timer or expensive blur pass.
+// The same dark canvas is used by WidgetKit, the workbench and sticky mode.
+struct PulseWidgetBackground: View {
+    var body: some View {
+        LinearGradient(colors:[Color(red:0.055,green:0.11,blue:0.14),Color(red:0.04,green:0.065,blue:0.09)],
+                       startPoint:.topLeading,endPoint:.bottomTrailing)
+    }
+}
+
 struct PulseWindowBackground: View {
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        GeometryReader { geometry in
-            let dark = scheme == .dark
-            ZStack {
-                LinearGradient(colors: dark ?
-                    [Color(red:0.12,green:0.16,blue:0.18), Color(red:0.065,green:0.085,blue:0.10)] :
-                    [Color(red:0.95,green:0.97,blue:0.97), Color(red:0.89,green:0.93,blue:0.94)],
-                    startPoint:.topLeading,endPoint:.bottomTrailing)
-                RadialGradient(colors:[Color(red:0.38,green:0.66,blue:0.67).opacity(dark ? 0.18:0.12),.clear],
-                    center:UnitPoint(x:0.15,y:0),startRadius:0,
-                    endRadius:max(geometry.size.width,geometry.size.height)*0.85)
-                RadialGradient(colors:[Color(red:0.20,green:0.57,blue:0.48).opacity(dark ? 0.075:0.06),.clear],
-                    center:.bottomTrailing,startRadius:0,
-                    endRadius:max(geometry.size.width,geometry.size.height)*0.65)
+        Group {
+            if scheme == .dark {PulseWidgetBackground()}
+            else {
+                LinearGradient(colors:[Color(red:0.95,green:0.97,blue:0.97),Color(red:0.89,green:0.93,blue:0.94)],
+                               startPoint:.topLeading,endPoint:.bottomTrailing)
             }
         }.allowsHitTesting(false).accessibilityHidden(true)
     }
@@ -137,12 +135,15 @@ struct PulseCard: View {
     let snapshot: PulseSnapshot
     var compact = false
     var expanded = false
+    var headerControls: AnyView? = nil
+    var adaptiveForeground = false
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Image(systemName: "waveform.path").foregroundStyle(pulseMint)
                 Text(compact ? "CODEX" : "CODEX PULSE").font(.system(size: 11, weight: .bold, design: .rounded)).tracking(1.5).lineLimit(1)
                 Spacer(minLength: 0)
+                if let headerControls {headerControls}
                 Circle().fill(snapshot.stale ? .orange : pulseMint).frame(width: 6,height: 6)
             }
             if compact {
@@ -201,6 +202,6 @@ struct PulseCard: View {
                 Spacer(minLength: 3)
                 if !compact { Text("本机会话") }
             }.font(.system(size: 9)).foregroundStyle(snapshot.stale ? .orange : .secondary)
-        }.foregroundStyle(.white)
+        }.foregroundStyle(adaptiveForeground ? Color.primary : .white)
     }
 }
