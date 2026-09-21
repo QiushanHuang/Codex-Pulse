@@ -232,10 +232,16 @@ struct Dashboard:View {
 
 @main
 struct CodexPulseApp: App {
+    @NSApplicationDelegateAdaptor(PulseApplicationDelegate.self) private var appDelegate
     @StateObject private var model = PulseModel()
     var body: some Scene {
         Window("Codex Pulse",id:"dashboard") {
             PulseDashboardWindow(model:model)
+                .onAppear {
+                    appDelegate.reopen = {
+                        model.statusBar?.openWindow?((model.windows.selected ?? .dashboard).rawValue)
+                    }
+                }
                 .onOpenURL { _ in NSApp.activate(ignoringOtherApps:true) }
         }
             .defaultSize(width:1280,height:820)
@@ -304,12 +310,14 @@ final class PulseStatusBar: NSObject {
         add("设置…",#selector(showSettings))
         add(model.lighting ? "关闭键盘状态灯":"开启键盘状态灯",#selector(toggleLighting))
         menu.addItem(.separator())
+        add("隐藏 Codex Pulse",#selector(hideApplication))
         add("退出",#selector(quit))
         // Route both mouse buttons through the native status-item menu.
         item.menu=menu
         item.button?.performClick(nil)
         item.menu=nil
     }
+    @objc private func hideApplication(){NSApp.hide(nil)}
     @objc private func showSticky(){openWindow?("sticky")}
     @objc private func showDashboard() { openWindow?("dashboard") }
     @objc private func showSettings() { openWindow?("settings") }

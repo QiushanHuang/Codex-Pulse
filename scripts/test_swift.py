@@ -8,6 +8,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/swift-tests'
 SUITES = {
+    'ApplicationLifecycle': ['ApplicationLifecycle'],
     'RuntimePaths': ['RuntimePaths'],
     'AmbientCatalog': ['AmbientCatalog'],
     'AmbientJavaScript': [],
