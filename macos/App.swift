@@ -367,6 +367,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 }
 
 struct PulseSettings: View {
+    @AppStorage("showInDock") private var showInDock=true
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: PulseModel
     private var category:SettingsCategory {model.settingsCategory}
@@ -407,6 +408,11 @@ struct PulseSettings: View {
     }
     private var generalSettings: some View {
         VStack(alignment:.leading,spacing:16) {
+            Text("Dock 与菜单栏").font(.headline)
+            Toggle("在 Dock 中显示",isOn:$showInDock)
+                .onChange(of:showInDock) { _,visible in PulseApplicationDelegate.applyDockVisibility(visible) }
+            Text("关闭后隐藏 Dock 图标，仍可从菜单栏打开窗口和设置，后台监控继续运行。").font(.caption).foregroundStyle(.secondary)
+            Divider()
             Text("应用外观").font(.headline)
             Picker("配色",selection:Binding(get:{model.appearance},set:{model.setAppearance($0)})) {
                 ForEach(PulseAppearance.allCases) {Text($0.title).tag($0)}

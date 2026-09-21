@@ -93,7 +93,8 @@ The download is for Apple Silicon. Intel users can review the
 4. Choose **便签模式** (Sticky Mode), or press **⌘⇧M**. Pin the card with its pin button.
    Switch back to the workbench for details; monitoring continues as you change views.
 5. Open **设置** (Settings) with **⌘,** for appearance, monitoring, privacy diagnostics
-   and widget guidance. Use **⌘H** or **隐藏 Codex Pulse** in the Dock/menu-bar menu
+   and widget guidance. Turn off **在 Dock 中显示** in General settings to hide
+   the Dock icon while keeping the menu-bar entry. Use **⌘H** or **隐藏 Codex Pulse** in the Dock/menu-bar menu
    to hide the app while monitoring continues. Click its Dock icon to restore the
    last dashboard or sticky view, including after closing its window. Quit stops monitoring.
 
@@ -265,7 +266,8 @@ shasum -a 256 Codex-Pulse-v2.1.2-macos-arm64.dmg
 4. 选择 **便签模式** 或按 **⌘⇧M**，用图钉切换置顶。需要详情时切回工作台，
    切换视图期间监控继续运行。
 5. 按 **⌘,** 打开 **设置**，管理外观、监控、隐私诊断与小组件说明。
-   应用保留 Dock 图标；按 **⌘H**，或在 Dock／菜单栏菜单选择 **隐藏 Codex Pulse**，
+   在通用设置中关闭 **在 Dock 中显示**，可隐藏 Dock 图标并保留菜单栏入口。
+   按 **⌘H**，或在 Dock／菜单栏菜单选择 **隐藏 Codex Pulse**，
    可隐藏应用并继续监控。点击 Dock 图标可恢复上次使用的工作台或便签，关闭窗口后也能重新打开。
    选择退出后后台停止。
 

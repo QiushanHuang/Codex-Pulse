@@ -5,7 +5,20 @@ final class PulseApplicationDelegate: NSObject, NSApplicationDelegate {
     var reopen: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        if let file=Bundle.main.object(forInfoDictionaryKey:"CFBundleIconFile") as? String,
+           let resources=Bundle.main.resourceURL,
+           let icon=NSImage(contentsOf:resources.appendingPathComponent(file)) {
+            NSApp.applicationIconImage=icon
+        }
+        Self.applyDockVisibility(UserDefaults.standard.object(forKey:"showInDock") as? Bool ?? true)
+    }
+
+    static func activationPolicy(showInDock:Bool) -> NSApplication.ActivationPolicy {
+        showInDock ? .regular:.accessory
+    }
+
+    static func applyDockVisibility(_ visible:Bool) {
+        NSApp.setActivationPolicy(activationPolicy(showInDock:visible))
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

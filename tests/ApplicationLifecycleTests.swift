@@ -3,6 +3,8 @@ import AppKit
  @MainActor static func main() {
   let app=NSApplication.shared
   let delegate=PulseApplicationDelegate()
+  precondition(PulseApplicationDelegate.activationPolicy(showInDock:false) == .accessory)
+  precondition(PulseApplicationDelegate.activationPolicy(showInDock:true) == .regular)
   var reopened=0
   delegate.reopen={reopened += 1}
   precondition(!delegate.applicationShouldTerminateAfterLastWindowClosed(app))

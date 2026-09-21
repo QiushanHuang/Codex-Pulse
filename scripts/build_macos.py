@@ -71,7 +71,7 @@ def main():
             suffix = '@2x' if scale == 2 else ''
             run('sips', '-z', size * scale, size * scale, source_icon,
                 '--out', iconset / f'icon_{size}x{size}{suffix}.png')
-    run('iconutil', '-c', 'icns', iconset, '-o', resources / 'CodexPulse.icns')
+    run('iconutil', '-c', 'icns', iconset, '-o', resources / 'CodexPulse-v3.icns')
     for directory in ('codex_pulse', 'scripts'):
         shutil.copytree(ROOT / directory, resources / 'backend' / directory, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -81,7 +81,7 @@ def main():
     plist(app / 'Contents/Info.plist', {**common, 'CFBundleIdentifier':'local.qiushan.CodexPulse',
           'CFBundleName':'Codex Pulse', 'CFBundleDisplayName':'Codex Pulse', 'CFBundleExecutable':'CodexPulse',
           'CFBundlePackageType':'APPL', 'NSHighResolutionCapable':True,
-          'CFBundleIconFile':'CodexPulse.icns',
+          'CFBundleIconFile':'CodexPulse-v3.icns', 'LSUIElement':True,
           'PulsePython':python, 'PulseNode':shutil.which('node') or '/usr/local/bin/node',
           'CFBundleURLTypes':[{'CFBundleURLName':'CodexPulse','CFBundleURLSchemes':['codexpulse']}]})
     # A real extension target supplies the NSExtensionMain entry point required by macOS.
