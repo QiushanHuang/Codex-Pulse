@@ -342,7 +342,12 @@ struct InputAttentionNotice:View {
                 Label("按键交互需要处理",systemImage:"exclamationmark.triangle").foregroundStyle(.orange)
                 Spacer()
                 Button("查看设置") {model.settingsCategory = .input;openWindow(id:"settings")}
-            }.font(.caption)
+                    .buttonStyle(.bordered).controlSize(.small)
+            }
+            .font(.callout)
+            .padding(.horizontal,14).padding(.vertical,10)
+            .background(Color.orange.opacity(0.08),in:RoundedRectangle(cornerRadius:9))
+            .padding(.top,24)
         }
     }
 }

@@ -2,6 +2,9 @@
 
 ## Unreleased — 2026-09-22
 
+- Align the input-attention settings button inside a padded notice bar.
+- 主页面「查看设置」放入带顶部留白的提示栏，与提示文字垂直居中，避免贴近窗口上沿。
+
 - Restore the original Widget view and fixed mint palette in a dedicated Widget source, isolated from the app appearance settings.
 - 小组件恢复原始视图和固定亮薄荷绿配色，使用独立源码，避免受主应用浅色模式影响。
 
