@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — 2026-09-22
+
+- Refresh Widget extension registration after local installation and remove the source build registration. This prevents an old extension process/version from producing rejected timelines after an update.
+- Add `python3 scripts/install_macos.py --repair-widget` to repair the installed Widget without replacing the app or clearing other widgets.
+
+### 中文
+
+- 本机安装后重新注册 Widget 扩展并移除构建来源的旧注册，避免更新后沿用旧扩展版本，导致时间线被系统拒绝、Widget 显示空白。
+- 新增 `python3 scripts/install_macos.py --repair-widget`，可单独修复已安装小组件，不替换主应用，不清除其他小组件。
+
 ## 2.1.3 — 2026-09-21
 
 - Add a persistent **Show in Dock** switch in General settings. Hiding the Dock icon keeps the menu-bar entry and background monitoring available.

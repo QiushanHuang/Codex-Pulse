@@ -19,6 +19,28 @@ TARGET = Path('/Applications/Codex Pulse.app')
 DATA = Path.home() / 'Library/Application Support/CodexPulse'
 
 
+def remove_widget_registration(extension):
+    result = subprocess.run(['/usr/bin/pluginkit', '-r', str(extension)], capture_output=True, text=True)
+    if result.returncode and not (result.returncode == 1 and
+            result.stderr.strip() == f'remove: no plugin at {extension}'):
+        result.check_returncode()
+    return result.returncode == 0
+
+
+def refresh_widget_registration(source_app=None):
+    """Refresh only Pulse registrations; leave other widgets and their caches alone."""
+    extension = Path('Contents/PlugIns/CodexPulseWidget.appex')
+    lsregister = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
+    if source_app is not None and source_app.resolve() != TARGET.resolve():
+        if remove_widget_registration(source_app / extension):
+            subprocess.run([lsregister, '-u', str(source_app)], check=True)
+    # Removing the old extension registration retires its cached process/version.
+    # Re-add the installed extension only after its host registration is current.
+    remove_widget_registration(TARGET / extension)
+    subprocess.run([lsregister, '-f', str(TARGET)], check=True)
+    subprocess.run(['/usr/bin/pluginkit', '-a', str(TARGET / extension)], check=True)
+
+
 def install(app):
     app = app.resolve()
     if app == TARGET:
@@ -52,7 +74,8 @@ def install(app):
         if backup.exists():
             backup.rename(TARGET)
         raise
-    subprocess.run(['/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', '-f', str(TARGET)], check=True)
+    refresh_widget_registration(app)
+    receipt['widgetRegistration'] = 'refreshed'
     receipt['installedAt'] = time.time()
     receipt_path = ROOT / 'build' / ('input-install-' + stamp + '.json')
     write_json(receipt_path, receipt)
@@ -78,4 +101,11 @@ def install(app):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app', type=Path, default=ROOT / 'build/Codex Pulse.app')
-    install(parser.parse_args().app)
+    parser.add_argument('--repair-widget', action='store_true', help='Refresh only the installed Widget registration without replacing the app')
+    args = parser.parse_args()
+    if args.repair_widget:
+        subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(TARGET)], check=True)
+        refresh_widget_registration(args.app)
+        print('已刷新 Codex Pulse 小组件注册；macOS 将重新加载时间线。')
+    else:
+        install(args.app)

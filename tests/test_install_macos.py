@@ -32,3 +32,37 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(destination.name,'Codex Pulse.app')
         self.assertIn('.install-staging',destination.parts)
         self.assertNotIn('Applications',destination.parts)
+
+class WidgetRegistrationTests(unittest.TestCase):
+    def test_refresh_removes_stale_source_and_replaces_target_registration(self):
+        target=Path('/Applications/Codex Pulse.app')
+        source=Path('/tmp/build/Codex Pulse.app')
+        with patch.object(install_macos,'TARGET',target), patch.object(install_macos.subprocess,'run',return_value=CompletedProcess([],0,stdout='',stderr='')) as run:
+            install_macos.refresh_widget_registration(source)
+        calls=[call.args[0] for call in run.call_args_list]
+        extension='Contents/PlugIns/CodexPulseWidget.appex'
+        self.assertIn(['/usr/bin/pluginkit','-r',str(source/extension)],calls)
+        self.assertIn(['/usr/bin/pluginkit','-r',str(target/extension)],calls)
+        add=['/usr/bin/pluginkit','-a',str(target/extension)]
+        self.assertEqual(calls[-1],add)
+        self.assertTrue(all(call.kwargs.get('check') for call in run.call_args_list if '-r' not in call.args[0]))
+        self.assertFalse(any('killall' in str(c) or '-kill' in c for c in calls))
+
+    def test_same_source_never_unregisters_installed_host(self):
+        with patch.object(install_macos.subprocess,'run',return_value=CompletedProcess([],0,stdout='',stderr='')) as run:
+            install_macos.refresh_widget_registration(install_macos.TARGET)
+        calls=[call.args[0] for call in run.call_args_list]
+        self.assertFalse(any('-u' in call for call in calls))
+
+    def test_already_absent_registration_is_safe_to_repeat(self):
+        extension=Path('/tmp/Widget.appex')
+        result=CompletedProcess([],1,stdout='',stderr=f'remove: no plugin at {extension}\n')
+        with patch.object(install_macos.subprocess,'run',return_value=result):
+            install_macos.remove_widget_registration(extension)
+
+    def test_registration_removal_does_not_swallow_other_errors(self):
+        import subprocess
+        result=CompletedProcess([],1,stdout='',stderr='permission denied')
+        with patch.object(install_macos.subprocess,'run',return_value=result):
+            with self.assertRaises(subprocess.CalledProcessError):
+                install_macos.remove_widget_registration(Path('/tmp/Widget.appex'))

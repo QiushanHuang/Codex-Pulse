@@ -108,3 +108,15 @@ codesign --verify --deep --strict "/Applications/Codex Pulse.app"
 
 更新后可能需要重新授权输入监控。软件测试、签名和发送帧不等于实体灯效或长期耗电已验证。
 macOS 14 是部署目标；本次是在较新的 Apple Silicon Mac 上构建检查，未完成全新 macOS 14 验证。
+
+## Widget blank after an update / 更新后小组件空白
+
+If system logs report `Bundle version did not match`, refresh the installed extension registration from a source checkout:
+
+```sh
+python3 scripts/install_macos.py --repair-widget
+```
+
+This unregisters the checkout build and refreshes `/Applications/Codex Pulse.app` and its Widget extension. It does not reinstall the app, delete timelines, reset privacy permissions or restart all macOS widgets. macOS controls when new timelines become visible.
+
+若更新后小组件空白且日志出现上述版本不一致错误，可在源码目录执行此命令。它移除构建目录旧注册，并刷新正式安装版及其扩展注册；不会重装主应用、删除时间线、重置隐私权限或重启全部小组件。安装脚本也会自动执行此步骤。
