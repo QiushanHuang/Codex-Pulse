@@ -15,7 +15,7 @@ def obj(n, isa, **fields):
     return key
 
 
-shared = obj(1,'PBXFileReference',lastKnownFileType='sourcecode.swift',path='Shared.swift',sourceTree='<group>')
+shared = obj(1,'PBXFileReference',lastKnownFileType='sourcecode.swift',path='WidgetShared.swift',sourceTree='<group>')
 widget = obj(2,'PBXFileReference',lastKnownFileType='sourcecode.swift',path='Widget.swift',sourceTree='<group>')
 product = obj(3,'PBXFileReference',explicitFileType='wrapper.app-extension',path='CodexPulseWidget.appex',sourceTree='BUILT_PRODUCTS_DIR',includeInIndex=0)
 builds = [obj(4,'PBXBuildFile',fileRef=shared),obj(5,'PBXBuildFile',fileRef=widget)]

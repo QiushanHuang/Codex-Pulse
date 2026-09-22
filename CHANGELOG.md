@@ -2,6 +2,9 @@
 
 ## Unreleased — 2026-09-22
 
+- Restore the original Widget view and fixed mint palette in a dedicated Widget source, isolated from the app appearance settings.
+- 小组件恢复原始视图和固定亮薄荷绿配色，使用独立源码，避免受主应用浅色模式影响。
+
 - Refresh Widget extension registration after local installation and remove the source build registration. This prevents an old extension process/version from producing rejected timelines after an update.
 - Add `python3 scripts/install_macos.py --repair-widget` to repair the installed Widget without replacing the app or clearing other widgets.
 
