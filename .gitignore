@@ -24,3 +24,6 @@ xcuserdata/
 # Earlier local brand experiments
 /assets/branding/*-v1.*
 /assets/branding/*-v2.*
+
+# Local desktop interaction investigation and installation receipts
+/docs/superpowers/

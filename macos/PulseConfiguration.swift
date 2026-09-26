@@ -24,8 +24,21 @@ struct PulseConfigurationStore {
         }
         if let raw=value["windowSettings"] {
             guard let settings=raw as? [String:Any] else {throw Failure.invalid}
-            if let pin=settings["stickyPinned"] {
-                guard let number=pin as? NSNumber,CFGetTypeID(number)==CFBooleanGetTypeID() else {throw Failure.invalid}
+            for key in ["stickyPinned","sidebarEnabled","sidebarAutoHide","sidebarShowQuota","sidebarShowReset","sidebarShowConsumption","sidebarShowSummary","sidebarShowTasks","sidebarShowTrend"] {
+                if let value=settings[key] {
+                    guard let number=value as? NSNumber,CFGetTypeID(number)==CFBooleanGetTypeID() else {throw Failure.invalid}
+                }
+            }
+            for key in ["stickySize","sidebarSide","sidebarScreenID","sidebarStyle","sidebarBadge","miniClickAction"] {
+                if let value=settings[key],!(value is String) {throw Failure.invalid}
+            }
+            for key in ["sidebarPosition","miniDiameter"] {
+                if let value=settings[key] {
+                    guard let number=value as? NSNumber,CFGetTypeID(number) != CFBooleanGetTypeID(),number.doubleValue.isFinite else {throw Failure.invalid}
+                }
+            }
+            if let value=settings["sidebarTaskLimit"] {
+                guard let number=value as? NSNumber,CFGetTypeID(number) != CFBooleanGetTypeID(),number.doubleValue.isFinite,number.doubleValue==Double(number.intValue) else {throw Failure.invalid}
             }
         }
         if let profiles=value["deviceProfiles"],!(profiles is [String:Any]) {throw Failure.invalid}
@@ -80,9 +93,12 @@ struct PulseConfigurationStore {
         }
     }
     @discardableResult func saveStickyPinned(_ pinned:Bool) throws ->[String:Any] {
+        try saveWindowSettings(["stickyPinned":pinned])
+    }
+    @discardableResult func saveWindowSettings(_ changes:[String:Any]) throws ->[String:Any] {
         try update {config in
             var preferences=config["windowSettings"] as? [String:Any] ?? [:]
-            preferences["stickyPinned"]=pinned
+            preferences.merge(changes){_,new in new}
             config["windowSettings"]=preferences
         }
     }

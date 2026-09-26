@@ -13,6 +13,7 @@ except ImportError:
     from input_continuity import read_signature, write_json, build_report
 
 ROOT = Path(__file__).resolve().parent.parent
+APP_SOURCES = ['ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
 
 
 def select_python(candidates=None):
@@ -98,7 +99,8 @@ def main():
     target = subprocess.check_output(['uname','-m'],text=True).strip()+'-apple-macosx14.0'
     common_flags = ['xcrun','swiftc','-parse-as-library','-O','-sdk',sdk,'-target',target,
                     '-framework','SwiftUI','-framework','WidgetKit',str(ROOT/'macos/Shared.swift')]
-    run(*common_flags, '-framework','AppKit','-framework','Network','-framework','JavaScriptCore','-framework','Security',ROOT/'macos/ApplicationLifecycle.swift',ROOT/'macos/RuntimePaths.swift',ROOT/'macos/InputAuthorization.swift',ROOT/'macos/AmbientDesignPreview.swift',ROOT/'macos/InputMonitorState.swift',ROOT/'macos/AmbientCatalog.swift',ROOT/'macos/AmbientLighting.swift',ROOT/'macos/AmbientLibrary.swift', ROOT/'macos/MenuBar.swift', ROOT/'macos/LightingDiagram.swift', ROOT/'macos/WindowPresentation.swift', ROOT/'macos/StickyPresentation.swift', ROOT/'macos/StickyWindowSupport.swift', ROOT/'macos/StickyDashboard.swift', ROOT/'macos/PresetPagination.swift', ROOT/'macos/PulseConfiguration.swift', ROOT/'macos/WorkbenchState.swift', ROOT/'macos/WorkbenchViews.swift', ROOT/'macos/App.swift', '-o', app/'Contents/MacOS/CodexPulse')
+    run(*common_flags, '-framework', 'AppKit', '-framework', 'Network', '-framework', 'JavaScriptCore', '-framework', 'Security',
+        *(ROOT/'macos'/f'{source}.swift' for source in APP_SOURCES), '-o', app/'Contents/MacOS/CodexPulse')
     run('codesign','--force','--sign',args.identity, app)
     run('codesign','--verify','--deep','--strict',app)
     report = build_report(app, installed, previous)

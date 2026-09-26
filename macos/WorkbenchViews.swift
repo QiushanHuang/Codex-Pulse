@@ -48,6 +48,9 @@ struct WorkbenchShell: View {
                 Button { model.presentWindow("sticky",using:{openWindow(id:$0)}) } label: {
                     Label("便签模式",systemImage:"rectangle.portrait").frame(maxWidth:.infinity,alignment:.leading)
                 }.buttonStyle(.plain).help("打开常驻桌面的监控小窗")
+                Button {model.toggleSidebar()} label: {
+                    Label(model.desktopPreferences.sidebarEnabled ? "关闭屏幕侧边栏":"屏幕侧边栏",systemImage:"sidebar.right").frame(maxWidth:.infinity,alignment:.leading)
+                }.buttonStyle(.plain).help("在屏幕边缘显示状态入口")
                 Button { openWindow(id: "settings") } label: {
                     Label("设置", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading)
                 }.buttonStyle(.plain).keyboardShortcut(",", modifiers: .command)

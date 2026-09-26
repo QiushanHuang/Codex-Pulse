@@ -15,7 +15,33 @@
 
 **Keep track of Codex while you work, with fewer window switches.**
 Codex Pulse is a native macOS companion that keeps background work visible in the
-menu bar, a pinnable card and, optionally, a compatible keyboard.
+menu bar, a resizable quota ring, a pinnable card, a screen-edge sidebar and, optionally,
+a compatible keyboard.
+
+> **Latest source update:** smaller sticky surfaces and an optional sidebar.
+> The downloadable release remains **v2.1.3**; build from source to use the new
+> surfaces. See the [update notes](CHANGELOG.md#unreleased--desktop-surfaces-2026-09-26).
+
+## Choose how much to show
+
+| Surface | Best for | Controls |
+| --- | --- | --- |
+| Mini ring | Just the remaining percentage | Resize from 40–160 points; drag the circle; right-click for settings |
+| Compact card | Quota and reset information in a narrow space | 220 points wide; optional pinning |
+| Standard card | Quota, trend and recent tasks together | Existing full sticky layout and workbench shortcut |
+| Screen sidebar | An edge entry that opens details when needed | Left/right edge, display selection, auto-hide or always visible |
+| Workbench and widgets | Full task review or macOS desktop widgets | Existing views remain available |
+
+In **设置 → 便签与侧边栏** (Settings → Sticky & Sidebar), choose what a ring click
+opens: **不展开 / 紧凑浮层 / 标准浮层** (none / Compact / Standard). The panel opens beside
+the ring; click again, click outside or press **Esc** to close it. Dragging also
+closes the panel. The ring keeps its size, position and mode.
+
+Enable the sidebar with **⌘⇧B**, then choose its badge and detail sections in Settings.
+Show quota and a few recent tasks, or add reset time, consumption, counts and trend.
+The sidebar is optional and independent of the sticky card.
+
+<p align="center"><img src="docs/images/sticky-mini-dark.png" width="96" alt="Mini quota ring with synthetic remaining percentage"> &nbsp; <img src="docs/images/sticky-compact-dark.png" width="220" alt="Narrow Compact sticky card with synthetic quota data"></p>
 
 ## Why Codex Pulse
 
@@ -197,7 +223,29 @@ use the [MIT License](LICENSE); bundled runtimes retain their
 
 **把 Codex 的额度、任务状态与键盘提示放在一起，少切几次窗口。**
 Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在菜单栏、可置顶便签，
-以及可选的兼容键盘上。
+可缩放圆环、屏幕侧边栏，以及可选的兼容键盘上。
+
+> **最新源码更新：**更小的便签与可选侧边栏。当前下载包仍为 **v2.1.3**，
+> 新功能请从源码构建；完整内容见[更新说明](CHANGELOG.md#unreleased--desktop-surfaces-2026-09-26)。
+
+### 选择适合你的展示方式
+
+| 展示方式 | 适合查看 | 操作 |
+| --- | --- | --- |
+| 迷你圆环 | 只看剩余额度数字 | 40–160 点大小，拖动圆环移动，右键打开设置 |
+| 紧凑便签 | 在较窄空间查看额度和重置 | 220 点宽，可置顶 |
+| 标准便签 | 同时查看额度、趋势与最近任务 | 保留原有布局和工作台入口 |
+| 屏幕侧边栏 | 平时停靠边缘，需要时展开详情 | 左右侧、显示器、自动隐藏或常驻可选 |
+| 工作台与小组件 | 完整任务管理或系统桌面展示 | 原有界面与功能均保留 |
+
+进入 **设置 → 便签与侧边栏**，把「单击圆环临时展开」设为 **不展开、紧凑浮层或标准浮层**。
+信息在圆环旁边临时显示，圆环保留原来的大小、位置和模式；再次单击、点击外部或按 **Esc**
+即可收起，拖动圆环也会收起浮层。
+
+按 **⌘⇧B** 开关侧边栏，在设置中选择波形或剩余数字，以及详情显示内容。
+可以只显示额度和几条最近任务，也可加入重置时间、消耗、统计与趋势。侧边栏与便签可独立使用。
+
+<p align="center"><img src="docs/images/sticky-mini-dark.png" width="96" alt="迷你额度圆环，使用模拟数据"> &nbsp; <img src="docs/images/sticky-compact-dark.png" width="220" alt="220 点宽紧凑便签，使用模拟数据"></p>
 
 ### 选择 Codex Pulse 的理由
 

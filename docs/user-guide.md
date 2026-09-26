@@ -22,6 +22,38 @@ a promise to cover protected dialogs or every full-screen Space. Switching betwe
 the card and workbench hides the other window, preserving page state. Settings remains
 independent. Closing windows does not stop monitoring; Quit does.
 
+The sticky card's size menu and **Settings → 便签与侧边栏** offer **Mini** (96 × 96),
+**Compact** (220 × 180), and **Standard** (344 × 344) content sizes in points. Mini is
+a quota ring with a number and no title bar; Compact adds reset time and consumption rate; Standard
+keeps trends and recent tasks. Size and pin choices are saved.
+Standard retains the original resizable window; the new sizes and sidebar are optional.
+Drag the mini ring to move it. Right-click it for size, pin, workbench, Settings and
+close actions. Unknown or stale quota appears as a dash instead of a current number.
+The right-click menu includes a continuous **40–160-point size slider**, quick sizes,
+and a reset to 96 points. The ring and number scale together and the selection is saved.
+The same diameter control is available in Settings while Mini is selected.
+**单击圆环临时展开** selects no expansion, a compact information panel, or a standard
+information panel. The ring stays in place and retains its size and mode. Click the
+ring again, click outside, press Esc, or use the panel's close button to dismiss it.
+Dragging the ring also dismisses the panel. The choice is saved in Settings or the
+ring's right-click menu; manual sticky mode changes remain separate.
+The full circular face and rim are draggable; transparent corners are excluded.
+
+Enable **屏幕侧边栏** from the menu bar, workbench, or the same Settings page (**⌘⇧B**
+toggles it). Choose the left/right edge, display, and auto-hide or always-visible mode.
+Drag the circular handle vertically or set its height in Settings. Auto-hide leaves a
+narrow edge target after 1.2 seconds; hover reveals the circle, and click opens quota
+details and recent tasks. Choose glass or solid for the detail panel. Click the handle
+again, click outside, or press Esc to dismiss it. The sidebar is independent of the
+sticky/workbench window and requires no new input permission. It returns to an available
+display if its saved display is disconnected.
+
+**圆钮内容** switches between the waveform and a remaining-quota number. In
+**详情显示内容**, independently choose quota, reset time, consumption estimates, task
+counters, recent tasks and trends; select 1–8 recent tasks. The default shows quota,
+reset time and three tasks. Hidden sections disappear and smaller selections shorten
+the panel. Reset and consumption choices apply only when quota is shown.
+
 Add a widget using macOS **Edit Widgets → Codex Pulse**. It reads the local snapshot;
 macOS controls scheduling, so its timestamp matters. Open the app for fresh data.
 To start at login, add `/Applications/Codex Pulse.app` to macOS Login Items.
@@ -134,6 +166,30 @@ a backup. If you enabled the legacy source login agent, first run
 
 **⌘⇧M**进入便签，用图钉切换普通窗口之上的置顶；不保证覆盖系统安全弹窗或所有全屏空间。
 便签与工作台互斥显示，保留页面状态；设置窗口独立。关闭窗口不停止监控，退出才会停止。
+
+在便签顶部的大小菜单或**设置 → 便签与侧边栏**中，选择**迷你**（96 × 96）、
+**紧凑**（220 × 180）或**标准**（344 × 344），尺寸为内容区的逻辑点。
+迷你只显示圆环与剩余数字，没有标题栏；紧凑增加重置时间和消耗速度，标准保留趋势与最近任务；大小与置顶状态自动保存。
+标准模式继续支持原有的手动缩放。原工作台、便签和小组件保留；小尺寸与侧边栏均为可选功能。
+拖动迷你圆环可以移动位置，右键可切换大小、置顶、打开工作台或设置，以及关闭便签。
+右键菜单内直接提供 **40–160 点大小滑块**、常用尺寸和恢复 96 点默认大小；圆环与数字同步缩放，选择自动保存。
+设置页选中迷你模式后，也能调整圆环直径。
+**单击圆环临时展开**可选不展开、紧凑浮层或标准浮层；设置页与圆环右键菜单均可选择并自动保存。
+圆环保持原位、原大小和原模式；再次单击圆环、点击外部、按 Esc 或点浮层关闭按钮即可收起。
+拖动圆环也会收起浮层。手动切换便签模式仍使用原来的模式菜单。
+整个圆面及外圈边缘都可拖动，圆环外的透明四角不参与命中。
+额度未知或过期时，圆环显示横线，避免把旧数字当作当前额度。
+
+从菜单栏、工作台或同一设置页启用**屏幕侧边栏**，也可用 **⌘⇧B** 开关。
+支持选择左侧或右侧、显示器、自动隐藏或始终显示；上下拖动圆钮或在设置中调整高度。
+自动隐藏时，移开鼠标 1.2 秒后收成窄边，移入恢复圆钮，点击打开额度与最近任务详情。
+详情可选毛玻璃或实色；再次点击圆钮、点击外部或按 Esc 收起。
+侧边栏独立于便签与工作台，无需新增输入权限；断开指定显示器后会回到可用屏幕。
+
+**圆钮内容**可选波形图标或剩余数字。**详情显示内容**中可分别选择剩余额度、重置时间、
+消耗估算、任务统计、最近任务和额度趋势，并指定显示 1–8 个任务。
+默认只显示额度、重置时间和 3 个最近任务；取消勾选会隐藏对应内容，较少的内容使用更短的面板。
+重置时间与消耗估算只在显示额度时生效。
 
 在系统**编辑小组件 → Codex Pulse**中添加小组件，注意“更新于”时间。
 刷新由 macOS 控制，需要及时数据时打开应用。登录启动可通过系统登录项添加应用。

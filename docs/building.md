@@ -57,6 +57,17 @@ keyboard scripts (`live-*.mjs`, `probe-*.mjs`) are excluded; run those only when
 operator intends to change a connected keyboard. Unit tests do not establish device
 compatibility, long-term power consumption or permission behavior on a different Mac.
 
+For sticky/sidebar changes, also run `python3 scripts/preview_desktop.py`. It compiles
+the real app model and views with a synthetic entry point, checks native resizing,
+panel isolation, auto-hide and cleanup, and writes light/dark previews under
+`build/desktop-preview/images`. `--interactive` opens an independent preview app with
+temporary settings and synthetic data; quit that preview before rebuilding it. Neither
+mode starts the monitor or controls a keyboard. Use the same SDK environment as the
+Swift runner. The preview does not replace the installed application.
+On macOS 15+, this also checks a cold SwiftUI launch with the sidebar already enabled,
+using Launch Services and a completion receipt. macOS 14 runs the native surface
+checks but reports the separate cold-launch scene check as unavailable.
+
 ## Reproduce the arm64 package
 
 The release packager needs **Python 3.12+**, a matching **2.1.3** app and extension,
@@ -140,6 +151,11 @@ codesign --verify --deep --strict "build/Codex Pulse.app"
 
 Swift 检查接受`PULSE_MACOS_SDK`和`DEVELOPER_DIR`，不启动真实监控或键盘控制。
 硬件脚本不纳入 CI；只有操作者明确希望改变键盘时才运行。
+
+便签与侧边栏修改还应运行 `python3 scripts/preview_desktop.py`，使用与 Swift 检查相同的 SDK 环境。
+它使用模拟数据检查窗口尺寸、圆环临时展开、侧边栏隔离、自动隐藏及清理，并生成浅色／深色预览。
+`--interactive` 打开独立测试应用，`--build-only` 只编译；不会启动监控、控制键盘或替换已安装应用。
+macOS 15+ 额外检查已启用侧边栏时的冷启动，macOS 14 仅运行原生展示检查。
 
 若出现 Swift 宏插件不匹配，使用匹配的编译器/SDK。本次主应用使用 CLT 的 MacOSX26.5.sdk，
 扩展由 Xcode 重新编译；对应命令与扩展位置见上方英文段。不要照抄本机不存在的 SDK 路径。

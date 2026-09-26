@@ -61,15 +61,18 @@ final class PulseModel: ObservableObject {
     @Published var route:WorkbenchRoute = .overview
     @Published var appearance:PulseAppearance = .system
     @Published var stickyPinned=false
+    @Published var desktopPreferences=DesktopPreferences()
     @Published var deviceInventory=DeviceInventory.empty
     @Published var selectedDeviceKey:String?
     let windows=PulseWindowCoordinator()
     private(set) var statusBar:PulseStatusBar?
+    private(set) var sidebar:SidebarController?
+    private(set) var stickyExpansion:StickyExpansionController?
     private var child:Process?
     private var timer:Timer?
     private var lastReload=Date.distantPast
     private var settingsSave:Timer?
-    private let configuration=PulseConfigurationStore(directory:PulsePaths.data)
+    private let configuration:PulseConfigurationStore
     private var lastConfig:[String:Any]=[:]
     private var monitoringAllowed=true
     private var monitoringRequested=false
@@ -79,7 +82,8 @@ final class PulseModel: ObservableObject {
     var lightingActive:Bool {lighting && deviceReady && deviceInventory.activeKey==selectedDeviceKey && snapshot.keyboard.status=="connected" && Date().timeIntervalSince1970-snapshot.generatedAt<30}
     var inputRequested:Bool {running && lighting && deviceReady && deviceInventory.activeKey==selectedDeviceKey && preferences.ambientEnabled && preferences.ambientInputEnabled && AmbientCatalog.shared.presets.first{$0.id==preferences.ambientPreset}?.category == "reactive"}
 
-    init(startMonitoring:Bool=true) {
+    init(startMonitoring:Bool=true,configurationDirectory:URL=PulsePaths.data) {
+        configuration=PulseConfigurationStore(directory:configurationDirectory)
         monitoringAllowed=startMonitoring
         do {
             let backup=PulsePaths.data.appendingPathComponent("keyboard-backup.json")
@@ -87,10 +91,14 @@ final class PulseModel: ObservableObject {
             lastConfig=try configuration.migrate(legacySignature:record?["signature"] as? String)
             applyConfig(lastConfig)
         } catch {configurationNotice=error.localizedDescription}
-        timer=Timer.scheduledTimer(withTimeInterval:5,repeats:true){[weak self] _ in Task{@MainActor in self?.refresh()}}
-        timer?.tolerance=1
-        if startMonitoring {start()}
+        if startMonitoring {
+            timer=Timer.scheduledTimer(withTimeInterval:5,repeats:true){[weak self] _ in Task{@MainActor in self?.refresh()}}
+            timer?.tolerance=1
+            start()
+        }
         statusBar=PulseStatusBar(model:self)
+        sidebar=SidebarController(model:self)
+        stickyExpansion=StickyExpansionController(model:self)
         refresh()
     }
     private func applyConfig(_ config:[String:Any]) {
@@ -99,9 +107,12 @@ final class PulseModel: ObservableObject {
         menuBarPreferences=MenuBarPreferences(config["menuBarSettings"] as? [String:Any] ?? [:])
         selectedDeviceKey=config["selectedDeviceKey"] as? String
         stickyPinned=(config["windowSettings"] as? [String:Any])?["stickyPinned"] as? Bool ?? false
+        desktopPreferences=DesktopPreferences(config["windowSettings"] as? [String:Any] ?? [:])
         let next=PulseAppearance(rawValue:config["appearance"] as? String ?? "") ?? .system
         appearance=next
         NSApp.appearance=next == .system ? nil:NSAppearance(named:next == .dark ? .darkAqua:.aqua)
+        sidebar?.configure(desktopPreferences)
+        stickyExpansion?.synchronize(desktopPreferences)
     }
     private func readConfig()->[String:Any] {
         do {lastConfig=try configuration.read();configurationNotice=nil}
@@ -123,6 +134,7 @@ final class PulseModel: ObservableObject {
         if monitoringAllowed && Date().timeIntervalSince(lastReload)>300 {WidgetCenter.shared.reloadAllTimelines();lastReload=Date()}
     }
     func presentWindow(_ id:String,using open:(String)->Void) {
+        stickyExpansion?.dismiss()
         if let mode=PulseWindowMode(rawValue:id) {windows.present(mode,open:open)} else {open(id)}
         NSApp.activate(ignoringOtherApps:true)
     }
@@ -130,6 +142,14 @@ final class PulseModel: ObservableObject {
         do {lastConfig=try configuration.saveStickyPinned(pinned);stickyPinned=pinned;configurationNotice=nil}
         catch {configurationNotice=error.localizedDescription}
     }
+    func saveDesktopSettings(_ changes:[String:Any]) {
+        do {lastConfig=try configuration.saveWindowSettings(changes);applyConfig(lastConfig);configurationNotice=nil}
+        catch {configurationNotice=error.localizedDescription}
+    }
+    func setStickySize(_ size:StickySize) {saveDesktopSettings(["stickySize":size.rawValue])}
+    func setMiniDiameter(_ value:Double) {saveDesktopSettings(["miniDiameter":MiniRingSizing.normalized(value)])}
+    func setMiniClickAction(_ action:MiniRingClickAction) {saveDesktopSettings(["miniClickAction":action.rawValue])}
+    func toggleSidebar() {saveDesktopSettings(["sidebarEnabled":!desktopPreferences.sidebarEnabled])}
     func setAppearance(_ next:PulseAppearance) {
         if updateConfig({$0["appearance"]=next.rawValue}) {applyConfig(lastConfig)}
     }
@@ -256,6 +276,8 @@ struct CodexPulseApp: App {
             CommandGroup(replacing:.appTermination) {Button("退出 Codex Pulse"){model.quit()}.keyboardShortcut("q",modifiers:.command)}
             CommandGroup(after:.windowArrangement) {
                 Button("打开便签模式"){model.statusBar?.openWindow?("sticky")}.keyboardShortcut("m",modifiers:[.command,.shift])
+                Button(model.desktopPreferences.sidebarEnabled ? "关闭屏幕侧边栏":"开启屏幕侧边栏"){model.toggleSidebar()}
+                    .keyboardShortcut("b",modifiers:[.command,.shift])
             }
             CommandGroup(after:.appSettings) {
                 Button("设置…") {model.statusBar?.openWindow?("settings")}.keyboardShortcut(",",modifiers:.command)
@@ -270,6 +292,7 @@ struct PulseDashboardWindow: View {
     var body: some View {
         Dashboard(model:model).background(WindowModeRegistration(mode:.dashboard,coordinator:model.windows).allowsHitTesting(false).accessibilityHidden(true)).onAppear {
             model.statusBar?.openWindow = { id in model.presentWindow(id,using:{openWindow(id:$0)}) }
+            model.sidebar?.start()
         }
     }
 }
@@ -303,6 +326,7 @@ final class PulseStatusBar: NSObject {
         }
         add("打开 Codex Pulse",#selector(showDashboard))
         add("打开便签模式",#selector(showSticky))
+        add(model.desktopPreferences.sidebarEnabled ? "关闭屏幕侧边栏":"开启屏幕侧边栏",#selector(toggleSidebar))
         let quota=MenuBarQuota(remaining:model.snapshot.primary?.remaining,stale:model.snapshot.stale)
         let status=NSMenuItem(title:quota.summary,action:nil,keyEquivalent:"");status.isEnabled=false;menu.addItem(status)
         menu.addItem(.separator())
@@ -319,6 +343,7 @@ final class PulseStatusBar: NSObject {
     }
     @objc private func hideApplication(){NSApp.hide(nil)}
     @objc private func showSticky(){openWindow?("sticky")}
+    @objc private func toggleSidebar(){model?.toggleSidebar()}
     @objc private func showDashboard() { openWindow?("dashboard") }
     @objc private func showSettings() { openWindow?("settings") }
     @objc private func openTibo() {
@@ -353,11 +378,12 @@ struct InputAttentionNotice:View {
 }
 
 enum SettingsCategory: String, CaseIterable, Identifiable {
-    case general="通用与外观", input="隐私与诊断", widgets="小组件与说明"
+    case general="通用与外观", desktop="便签与侧边栏", input="隐私与诊断", widgets="小组件与说明"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .general: return "gearshape"
+        case .desktop: return "sidebar.right"
         case .input: return "checkmark.shield"
         case .widgets: return "square.grid.2x2"
         }
@@ -365,6 +391,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var detail:String {
         switch self {
         case .general:return "管理菜单栏外观与后台监控。"
+        case .desktop:return "选择便签大小，让状态轻轻停靠在屏幕边缘。"
         case .input:return "检查普通按键响应、输入权限与服务状态。"
         case .widgets:return "添加小组件，了解数据范围与刷新方式。"
         }
@@ -400,6 +427,7 @@ struct PulseSettings: View {
                     }
                     switch category {
                     case .general: generalSettings
+                    case .desktop: DesktopSurfaceSettings(model:model)
                     case .input: diagnosticSettings
                     case .widgets: widgetSettings
                     }
@@ -409,6 +437,7 @@ struct PulseSettings: View {
             .preferredColorScheme(model.appearance.preferredScheme)
             .onAppear {
                 model.statusBar?.openWindow = { id in model.presentWindow(id,using:{openWindow(id:$0)}) }
+                model.sidebar?.start()
             }
     }
     private var generalSettings: some View {

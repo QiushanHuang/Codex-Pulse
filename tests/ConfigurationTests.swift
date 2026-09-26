@@ -42,6 +42,22 @@ import Foundation
   try current.write(to:file)
   _=try store.update{$0["appearance"]="light"}
   expect(try store.read()["appearance"] as? String == "light","appearance persists")
+  for damaged in [#"{"sidebarEnabled":"yes"}"#, #"{"sidebarAutoHide":1}"#, #"{"stickySize":12}"#, #"{"sidebarSide":false}"#, #"{"sidebarPosition":"middle"}"#, #"{"sidebarScreenID":12}"#, #"{"sidebarStyle":false}"#, #"{"sidebarBadge":4}"#, #"{"sidebarShowQuota":"yes"}"#, #"{"sidebarShowReset":1}"#, #"{"sidebarShowConsumption":null}"#, #"{"sidebarShowSummary":12}"#, #"{"sidebarShowTasks":"no"}"#, #"{"sidebarShowTrend":0}"#, #"{"sidebarTaskLimit":true}"#, #"{"sidebarTaskLimit":2.5}"#] {
+   let bytes=Data((#"{"schemaVersion":2,"windowSettings":"#+damaged+"}").utf8)
+   try bytes.write(to:file)
+   var rejected=false
+   do {_=try store.update{$0["appearance"]="dark"}}catch{rejected=true}
+   expect(rejected,"malformed desktop preferences must reject writes: \(damaged)")
+   expect(try Data(contentsOf:file)==bytes,"malformed desktop preferences must be retained")
+  }
   print("PASS: config migration/backup, idempotence, profile roundtrip, unknown fields, corruption/future-schema safety, appearance")
+  for value in ["true", "\"small\""] {
+   let bytes=Data(("{\"schemaVersion\":2,\"windowSettings\":{\"miniDiameter\":"+value+"}}").utf8)
+   try bytes.write(to:file)
+   var rejected=false
+   do {_=try store.update{$0["appearance"]="dark"}}catch{rejected=true}
+   expect(rejected,"invalid custom ring diameter must not be silently overwritten")
+   expect(try Data(contentsOf:file)==bytes,"damaged ring preference retained")
+  }
  }
 }

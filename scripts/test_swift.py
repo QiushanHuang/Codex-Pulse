@@ -13,6 +13,7 @@ SUITES = {
     'AmbientCatalog': ['AmbientCatalog'],
     'AmbientJavaScript': [],
     'Configuration': ['PulseConfiguration'],
+    'DesktopPresentation': ['DesktopPresentation', 'PulseConfiguration'],
     'Diagram': ['Shared', 'LightingDiagram'],
     'InputMonitorState': ['InputMonitorState'],
     'InputSignature': ['InputAuthorization', 'InputMonitorState'],
