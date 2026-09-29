@@ -5,18 +5,12 @@ struct DesktopQuotaRing:View {
     let value:DesktopQuotaValue
     var lineWidth:CGFloat=6
     var fontSize:CGFloat=32
-    private var color:Color {value.remaining == nil ? .gray:(value.remaining ?? 100)<=10 ? .red:pulseMint}
+    var credits:PulseCredits?=nil
+    var resetCredits:Int?=nil
     var body:some View {
-        ZStack {
-            Circle().stroke(Color.primary.opacity(0.10),style:StrokeStyle(lineWidth:lineWidth,dash:value.remaining == nil ? [3,4]:[]))
-            if value.remaining != nil {
-                Circle().trim(from:0,to:value.fraction)
-                    .stroke(color,style:StrokeStyle(lineWidth:lineWidth,lineCap:.round)).rotationEffect(.degrees(-90))
-            }
-            Text(value.number).font(.system(size:fontSize,weight:.semibold,design:.rounded)).monospacedDigit()
-                .foregroundStyle(value.remaining == nil ? Color.secondary:.primary)
-        }.padding(lineWidth/2).aspectRatio(1,contentMode:.fit)
-            .accessibilityElement(children:.ignore).accessibilityLabel(value.summary)
+        GeometryReader {proxy in
+            QuotaRing(remaining:value.remaining,stale:value.remaining == nil,size:min(proxy.size.width,proxy.size.height),credits:credits,resetCredits:resetCredits)
+        }.aspectRatio(1,contentMode:.fit)
     }
 }
 
@@ -48,18 +42,29 @@ struct SidebarSurface:View {
     var style:SidebarStyle = .glass
     var radius:CGFloat=22
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.glassTransparency) private var transparency
+    @Environment(\.glassMaterial) private var material
     var body:some View {
         Group {
             if style == .glass && !reduceTransparency {
-                SidebarMaterial().overlay(Color(nsColor:.windowBackgroundColor).opacity(0.22))
+                if #available(macOS 26.0,*) {
+                    Group {
+                        if material == .clear {Color.clear.glassEffect(.clear,in:.rect(cornerRadius:radius))}
+                        else {Color.clear.glassEffect(.regular,in:.rect(cornerRadius:radius))}
+                    }.overlay(Color(nsColor:.windowBackgroundColor).opacity(1-transparency))
+                } else {
+                    SidebarMaterial().overlay(Color(nsColor:.windowBackgroundColor).opacity(1-transparency))
+                        .overlay(LinearGradient(colors:[.white.opacity(0.16),.clear,pulseCredit.opacity(0.05)],startPoint:.topLeading,endPoint:.bottomTrailing))
+                }
             } else {Color(nsColor:.windowBackgroundColor)}
         }
         .clipShape(RoundedRectangle(cornerRadius:radius))
-        .overlay(RoundedRectangle(cornerRadius:radius).strokeBorder(Color.primary.opacity(0.12),lineWidth:0.8))
+        .overlay(RoundedRectangle(cornerRadius:radius).strokeBorder(LinearGradient(colors:[.white.opacity(0.35),Color.primary.opacity(0.06),.white.opacity(0.12)],startPoint:.topLeading,endPoint:.bottomTrailing),lineWidth:0.8))
     }
 }
 
 struct SidebarHandle:View {
+    @Environment(\.ringOuterColor) private var outerColor
     let snapshot:PulseSnapshot
     let tucked:Bool
     let expanded:Bool
@@ -75,10 +80,10 @@ struct SidebarHandle:View {
                 if tucked {
                     Capsule().fill(snapshot.stale ? Color.secondary:pulseMint).frame(width:3,height:22)
                 } else if badge == .remaining {
-                    DesktopQuotaRing(value:quota,lineWidth:2.5,fontSize:18).padding(4)
+                    DesktopQuotaRing(value:quota,lineWidth:2.5,fontSize:18,credits:snapshot.credits,resetCredits:snapshot.resetCredits).padding(4)
                 } else {
                     Circle().trim(from:0,to:CGFloat(quota.fraction))
-                        .stroke(snapshot.stale ? Color.secondary:pulseMint,style:StrokeStyle(lineWidth:2.2,lineCap:.round))
+                        .stroke(snapshot.stale ? Color.secondary:outerColor,style:StrokeStyle(lineWidth:2.2,lineCap:.round))
                         .rotationEffect(.degrees(-90)).padding(4)
                     Image(systemName:expanded ? (side == .left ? "chevron.left":"chevron.right"):"waveform.path")
                         .font(.system(size:18,weight:.medium)).foregroundStyle(pulseMint)
@@ -88,7 +93,7 @@ struct SidebarHandle:View {
         .buttonStyle(.plain)
         .accessibilityLabel(expanded ? "收起侧边详情":"打开侧边详情")
         .accessibilityValue(quota.summary)
-        .help("\(quota.summary) · 点击展开，沿边缘上下拖动")
+        .help("\(quota.summary) · 点击展开，右键打开菜单；自由拖动，移入屏幕转便签，移至左右边缘吸附")
     }
 }
 
@@ -97,6 +102,7 @@ struct SidebarDetailContent:View {
     var running=true
     var style:SidebarStyle = .glass
     var content=SidebarContent()
+    var displaySelector:AnyView?=nil
     var openTask:(PulseTask)->Void={_ in}
     var openWorkbench:()->Void={}
     var openSettings:()->Void={}
@@ -110,7 +116,7 @@ struct SidebarDetailContent:View {
                 Image(systemName:"waveform.path").font(.system(size:21)).foregroundStyle(pulseMint)
                 VStack(alignment:.leading,spacing:3) {
                     Text("Codex Pulse").font(.system(size:17,weight:.semibold,design:.rounded))
-                    Text(!running ? "监控已暂停":snapshot.stale ? "等待最新采样":"工作状态，一眼可见")
+                    Text(!running ? "监控已暂停":snapshot.stale ? "等待最新采样":"拖动边角可调整大小")
                         .font(.system(size:11)).foregroundStyle(!running || snapshot.stale ? .orange:.secondary)
                 }
                 Spacer()
@@ -133,6 +139,15 @@ struct SidebarDetailContent:View {
                 VStack(alignment:.leading,spacing:16) {
                     if page == 0 || !content.showsTabs {
                         if content.shows(.quota) {
+                            HStack(spacing:16) {
+                                QuotaRing(remaining:snapshot.primary?.remaining,stale:snapshot.stale || !running,size:92,credits:snapshot.credits,resetCredits:snapshot.resetCredits)
+                                VStack(alignment:.leading,spacing:9) {
+                                    Text("可用余额").font(.system(size:13,weight:.semibold))
+                                    CreditBalanceLine(snapshot:snapshot,running:running)
+                                    Text("套餐、余额、重置次数独立").font(.system(size:10)).foregroundStyle(.secondary)
+                                }
+                            }.padding(12).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:16))
+                            AccountUsageSummary(snapshot:snapshot,compact:true)
                             if snapshot.windows.isEmpty {
                                 empty("等待额度数据",detail:"开始监控后，额度会显示在这里。",symbol:"chart.bar")
                             } else {
@@ -164,14 +179,22 @@ struct SidebarDetailContent:View {
                     }
                 }.padding(.vertical,2)
             }.scrollIndicators(.hidden)
-            HStack {
-                Button(action:openWorkbench) {Label("工作台",systemImage:"arrow.up.left.and.arrow.down.right")}
-                    .buttonStyle(.bordered).controlSize(.small)
-                Spacer()
-                let updatedAt=content.hasQuotaPage ? snapshot.quotaAt:snapshot.generatedAt
-                if updatedAt>0 {Text(Date(timeIntervalSince1970:updatedAt),style:.time).font(.system(size:10)).foregroundStyle(.secondary)}
-                Button(action:openSettings) {Image(systemName:"slider.horizontal.3").frame(width:26,height:26)}
-                    .buttonStyle(.plain).help("便签与侧边栏设置").accessibilityLabel("便签与侧边栏设置")
+            VStack(spacing:10) {
+                if let displaySelector {
+                    HStack(spacing:10) {
+                        Label("显示器",systemImage:"display").font(.system(size:11)).foregroundStyle(.secondary).fixedSize()
+                        displaySelector.frame(maxWidth:.infinity)
+                    }.frame(height:24)
+                }
+                HStack(spacing:10) {
+                    Button(action:openWorkbench) {Label("工作台",systemImage:"arrow.up.left.and.arrow.down.right")}
+                        .buttonStyle(.bordered).controlSize(.small).fixedSize()
+                    Spacer(minLength:8)
+                    let updatedAt=content.hasQuotaPage ? snapshot.quotaAt:snapshot.generatedAt
+                    if updatedAt>0 {Text(Date(timeIntervalSince1970:updatedAt),style:.time).font(.system(size:10)).foregroundStyle(.secondary).lineLimit(1)}
+                    Button(action:openSettings) {Image(systemName:"slider.horizontal.3").frame(width:26,height:26)}
+                        .buttonStyle(.plain).help("便签与侧边栏设置").accessibilityLabel("便签与侧边栏设置")
+                }
             }
         }
         .padding(20)
@@ -228,6 +251,7 @@ struct SidebarDetailContent:View {
                         Circle().fill(task.color).frame(width:6,height:6).padding(.top,5)
                         VStack(alignment:.leading,spacing:5) {
                             Text(task.title.isEmpty ? "未命名任务":task.title).font(.system(size:12,weight:.medium)).lineLimit(2).frame(maxWidth:.infinity,alignment:.leading)
+                            Text(task.usageSummary).font(.system(size:10)).foregroundStyle(.secondary).lineLimit(1)
                             HStack {Text(task.label);Spacer();Text(Date(timeIntervalSince1970:task.at),style:.time)}
                                 .font(.system(size:10)).foregroundStyle(.secondary)
                         }
@@ -243,5 +267,56 @@ struct SidebarDetailContent:View {
             Label(title,systemImage:symbol).font(.callout)
             Text(detail).font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth:.infinity,alignment:.leading).padding(.vertical,12)
+    }
+}
+
+// Native popup retains the sidebar while its menu is tracking, including on
+// non-activating panels. Do not rebuild its items during a snapshot refresh.
+struct SidebarDisplayPicker:NSViewRepresentable {
+    let displays:[DesktopDisplay]
+    let selected:String
+    let select:(String)->Void
+    let tracking:(Bool)->Void
+    func makeCoordinator()->Coordinator {Coordinator(select:select,tracking:tracking)}
+    func makeNSView(context:Context)->NSPopUpButton {
+        let view=NSPopUpButton(frame:.zero,pullsDown:false)
+        view.controlSize = .small;view.font = .systemFont(ofSize:11)
+        view.setContentCompressionResistancePriority(.defaultLow,for:.horizontal)
+        view.setContentHuggingPriority(.defaultLow,for:.horizontal)
+        view.cell?.lineBreakMode = .byTruncatingTail
+        view.cell?.wraps=false
+        view.target=context.coordinator;view.action=#selector(Coordinator.changed(_:))
+        view.setAccessibilityLabel("侧边栏显示器")
+        return view
+    }
+    func sizeThatFits(_ proposal:ProposedViewSize,nsView:NSPopUpButton,context:Context)->CGSize? {
+        let width=proposal.width.flatMap{$0.isFinite ? $0:nil} ?? nsView.intrinsicContentSize.width
+        return CGSize(width:max(0,width),height:max(24,nsView.intrinsicContentSize.height))
+    }
+    func updateNSView(_ view:NSPopUpButton,context:Context) {
+        let state=context.coordinator;state.select=select;state.tracking=tracking
+        guard !state.open else{return}
+        let ids=displays.map(\.id)
+        if state.ids != ids || state.names != displays.map(\.name) {
+            view.removeAllItems()
+            for (index,display) in displays.enumerated() {
+                view.addItem(withTitle:"\(index+1). \(display.name)")
+                view.lastItem?.representedObject=display.id
+            }
+            state.ids=ids;state.names=displays.map(\.name)
+        }
+        view.menu?.delegate=state
+        if let index=ids.firstIndex(of:selected) {view.selectItem(at:index)}
+        view.toolTip="选择侧边栏所在显示器 · "+(displays.first{$0.id==selected}?.name ?? "")
+    }
+    final class Coordinator:NSObject,NSMenuDelegate {
+        var select:(String)->Void
+        var tracking:(Bool)->Void
+        var ids:[String]=[],names:[String]=[]
+        var open=false
+        init(select:@escaping (String)->Void,tracking:@escaping (Bool)->Void) {self.select=select;self.tracking=tracking}
+        @objc func changed(_ sender:NSPopUpButton) {if let id=sender.selectedItem?.representedObject as? String {select(id)}}
+        func menuWillOpen(_ menu:NSMenu) {open=true;tracking(true)}
+        func menuDidClose(_ menu:NSMenu) {open=false;tracking(false)}
     }
 }

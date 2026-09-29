@@ -62,6 +62,11 @@ import SwiftUI
   var reopened=false
   registered.present(.sticky){_ in reopened=true}
   precondition(reopened,"detached pending window can be reopened")
+  precondition(coordinator.hasWindow(.sticky))
+  coordinator.placeNextSticky(at:NSPoint(x:500,y:400))
+  precondition(coordinator.presentExisting(.sticky))
+  coordinator.hideStickyForDocking(sticky)
+  precondition(hidden.last === sticky && coordinator.selected==nil,"docking hides only sticky and clears its automatic presentation")
   print("PASS: exclusive mode switch, target creation/reuse, settings isolation, initial focus clearing and later keyboard focus")
  }
  final class KeyWindow:NSWindow {override var isKeyWindow:Bool {true}}

@@ -1,9 +1,89 @@
 """Pure interpretation of service observations. Percentages are quota, not tokens."""
 import math
+from datetime import date
+
+
+def token_integer(value):
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 2**63
+
+
+def normalize_account_usage(raw):
+    """Preserve server day buckets; missing dates are not observations of zero."""
+    rows = raw.get('dailyUsageBuckets') if isinstance(raw, dict) else None
+    if not isinstance(rows, list):
+        return None
+    days, seen = [], set()
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        day, tokens = row.get('startDate'), row.get('tokens')
+        try:
+            if not isinstance(day, str) or len(day) != 10 or date.fromisoformat(day).isoformat() != day:
+                return None
+        except ValueError:
+            return None
+        if day in seen or not token_integer(tokens):
+            return None
+        seen.add(day)
+        days.append({'date': day, 'tokens': tokens})
+    summary = raw.get('summary') or {}
+    lifetime = summary.get('lifetimeTokens') if isinstance(summary, dict) else None
+    return {'days': sorted(days, key=lambda d: d['date']),
+            'lifetimeTokens': lifetime if token_integer(lifetime) else None}
+
+
+def apply_account_usage(snapshot, observation, at):
+    if observation.get('accountKey') != snapshot.get('accountKey'):
+        return
+    if observation.get('usage') is not None:
+        snapshot.update(usage=observation['usage'], usageAt=at, usageError=None)
+    else:
+        snapshot['usageError'] = observation.get('error') or '服务未提供每日用量'
 
 
 def number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def normalize_credits(raw):
+    """Account credit balance, separate from quota percentages and reset coupons."""
+    buckets = raw.get('rateLimitsByLimitId')
+    bucket = buckets.get('codex') if isinstance(buckets, dict) else None
+    if not isinstance(bucket, dict):
+        bucket = raw.get('rateLimits')
+    if not isinstance(bucket, dict) or bucket.get('limitId') not in (None, 'codex'):
+        return None
+    credits = bucket.get('credits')
+    if not isinstance(credits, dict):
+        return None
+    balance = credits.get('balance')
+    try:
+        balance = float(balance) if not isinstance(balance, bool) else None
+    except (ValueError, TypeError, OverflowError):
+        balance = None
+    return {'balance': balance if number(balance) else None,
+            'unlimited': credits.get('unlimited') is True}
+
+
+def normalize_reset_vouchers(raw):
+    inventory = raw.get('rateLimitResetCredits')
+    rows = inventory.get('credits') if isinstance(inventory, dict) else None
+    if not isinstance(rows, list):
+        return None
+    result, seen = [], set()
+    for row in rows:
+        if not isinstance(row, dict) or row.get('status') != 'available':
+            continue
+        identity = row.get('id')
+        if not isinstance(identity, str) or not 0 < len(identity) <= 256 or identity in seen:
+            continue
+        seen.add(identity)
+        value = {'id': identity}
+        for field in ('expiresAt', 'grantedAt'):
+            at = row.get(field)
+            value[field] = at if number(at) and 0 <= at <= 253402300799 else None
+        result.append(value)
+    return result
 
 
 def normalize(raw):

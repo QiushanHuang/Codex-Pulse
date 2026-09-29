@@ -28,7 +28,8 @@ struct WorkbenchShell: View {
         .background(PulseWindowBackground())
         .frame(minWidth: 1024, idealWidth: 1280, minHeight: 700, idealHeight: 820)
         .tint(pulseMint)
-        .preferredColorScheme(model.appearance.preferredScheme)
+        .desktopAppearance(model.desktopPreferences)
+            .preferredColorScheme(model.appearance.preferredScheme)
     }
 
     private var sidebar: some View {
@@ -165,6 +166,8 @@ private struct WorkbenchOverview: View {
             VStack(alignment: .leading, spacing: 27) {
                 WorkbenchHeader(title: "工作总览", subtitle: "\(Date().formatted(.dateTime.locale(Locale(identifier:"zh_CN")).month().day().weekday(.wide)))  ·  本机")
                 quotaSummary
+                CreditBalanceLine(snapshot:model.snapshot)
+                AccountUsageSummary(snapshot:model.snapshot)
                 HStack(spacing: 14) {
                     metric("运行中", value: model.snapshot.activeCount, symbol: "bolt", color: pulseMint)
                     metric("需要关注", value: attentionCount, symbol: "exclamationmark.circle", color: .orange)
@@ -189,7 +192,7 @@ private struct WorkbenchOverview: View {
                                             .frame(width: 38, height: 42).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
                                         VStack(alignment: .leading, spacing: 5) {
                                             Text(task.title.isEmpty ? "未命名任务" : task.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
-                                            Text("本机 Codex").font(.caption).foregroundStyle(.secondary)
+                                            Text(task.usageSummary).font(.caption).foregroundStyle(.secondary)
                                         }
                                         Spacer(minLength: 8)
                                         WorkbenchTaskBadge(task: task).frame(width: 92, alignment: .leading)
@@ -286,12 +289,70 @@ private struct WorkbenchTaskBadge: View {
     }
 }
 
+struct TaskUsageComparison:View {
+    let tasks:[PulseTask]
+    @Binding var selectedID:String?
+    private var comparison:TaskTokenComparison {TaskTokenComparison(tasks:tasks)}
+    var body:some View {
+        VStack(alignment:.leading,spacing:12) {
+            HStack {
+                Label("任务 Token 用量对比",systemImage:"chart.bar.xaxis").font(.headline)
+                Spacer(minLength:4)
+                Text("\(comparison.knownCount) 项可比较").font(.caption).foregroundStyle(.secondary)
+            }
+            Text("会话累计用量 · 所有条形从 0 起，按同一比例绘制")
+                .font(.caption).foregroundStyle(.secondary)
+            if comparison.missingCount>0 {
+                Text("\(comparison.missingCount) 项未提供用量，以「未提供」标注。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                LazyVStack(spacing:8) {
+                    ForEach(Array(tasks.enumerated()),id:\.element.id) {index,task in
+                        Button {selectedID=task.id} label: {
+                            VStack(alignment:.leading,spacing:9) {
+                                HStack(alignment:.top,spacing:8) {
+                                    Text(String(index+1)).font(.system(size:11,weight:.medium)).monospacedDigit()
+                                        .foregroundStyle(.secondary).frame(width:22,alignment:.leading)
+                                    Text(task.title.isEmpty ? "未命名任务":task.title)
+                                        .font(.system(size:12,weight:.medium)).lineLimit(2)
+                                        .frame(maxWidth:.infinity,alignment:.leading)
+                                    Circle().fill(task.color).frame(width:6,height:6).padding(.top,4)
+                                }
+                                HStack(spacing:10) {
+                                    GeometryReader {geometry in
+                                        Capsule().fill(Color.primary.opacity(0.08))
+                                        if let fraction=comparison.fraction(for:task) {
+                                            Capsule().fill(pulseMint.opacity(0.85)).frame(width:geometry.size.width*fraction)
+                                        }
+                                    }.frame(height:8).accessibilityHidden(true)
+                                    Text(task.comparableTokens.map{$0.formatted()} ?? "未提供")
+                                        .font(.system(size:11,weight:.medium)).monospacedDigit()
+                                        .frame(width:112,alignment:.trailing)
+                                }
+                            }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                                .background(selectedID==task.id ? pulseMint.opacity(0.12):Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
+                                .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(selectedID==task.id ? pulseMint.opacity(0.6):.clear,lineWidth:1))
+                                .contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                            .accessibilityLabel("\(task.title)，\(task.comparableTokens.map{String($0)+" tokens"} ?? "用量未提供")，\(task.label)")
+                            .accessibilityAddTraits(selectedID==task.id ? .isSelected:[])
+                            .help(task.title+" · "+(task.comparableTokens.map{$0.formatted()+" tokens"} ?? "用量未提供"))
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct WorkbenchTaskPage: View {
     @ObservedObject var model: PulseModel
     @Binding var selectedID: String?
     @State private var query = ""
     @State private var filter: TaskStatusFilter = .all
-    private var tasks: [PulseTask] { WorkbenchTasks.filtered(model.snapshot.tasks, query: query, filter: filter) }
+    @State private var sort:TaskSortOrder = .tokensDescending
+    @State private var showComparison=true
+    private var tasks: [PulseTask] { WorkbenchTasks.filtered(model.snapshot.tasks, query: query, filter: filter, sort:sort) }
     private var selectedTask: PulseTask? { tasks.first { $0.id == selectedID } }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -311,21 +372,36 @@ private struct WorkbenchTaskPage: View {
                         }
                     }.padding(10).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.08)))
-                    HStack {
-                        Text("任务名称"); Spacer(); Text("状态").frame(width: 86, alignment: .leading)
-                    }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 11)
+                    HStack(spacing:12) {
+                        Picker("任务排序",selection:$sort) {
+                            ForEach(TaskSortOrder.allCases) {Text($0.title).tag($0)}
+                        }.labelsHidden().accessibilityLabel("任务排序")
+                        Spacer(minLength:0)
+                        Picker("任务展示方式",selection:$showComparison) {
+                            Text("列表").tag(false)
+                            Text("用量对比").tag(true)
+                        }.pickerStyle(.segmented).labelsHidden().frame(width:160)
+                    }
+                    if !showComparison {
+                        HStack {
+                            Text("任务名称"); Spacer(); Text("状态").frame(width:86,alignment:.leading)
+                        }.font(.caption).foregroundStyle(.secondary).padding(.horizontal,11)
+                    }
                     if tasks.isEmpty {
                         WorkbenchEmptyState(title: model.snapshot.tasks.isEmpty ? "还没有任务记录" : "没有匹配的任务", detail: model.snapshot.tasks.isEmpty ? "任务开始后会在这里显示。本页只读取会话元数据。" : "尝试其他关键词或状态筛选。", symbol: "list.bullet.rectangle")
                         if !query.isEmpty || filter != .all {
                             Button("清除筛选") { query = ""; filter = .all }.frame(maxWidth: .infinity)
                         }
                         Spacer()
+                    } else if showComparison {
+                        TaskUsageComparison(tasks:tasks,selectedID:$selectedID)
                     } else {
                         List(selection: $selectedID) {
                             ForEach(tasks) { task in
                                 HStack(alignment: .center, spacing: 10) {
                                     VStack(alignment: .leading, spacing: 7) {
                                         Text(task.title.isEmpty ? "未命名任务" : task.title).font(.system(size: 14, weight: .medium)).lineLimit(2)
+                                        Text(task.usageSummary).font(.caption).foregroundStyle(.secondary)
                                         Text("更新于 \(workbenchDate(task.at))").font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 4)
@@ -335,7 +411,7 @@ private struct WorkbenchTaskPage: View {
                         }.listStyle(.plain).scrollContentBackground(.hidden)
                     }
                     HStack {
-                        Text("\(tasks.count) 个会话"); Spacer(); Text("按状态与最近活动排序")
+                        Text("\(tasks.count) 个会话"); Spacer(); Text(sort.title)
                     }.font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity)
                 Divider()
@@ -355,6 +431,13 @@ private struct WorkbenchTaskPage: View {
                     Text(task.title.isEmpty ? "未命名任务" : task.title).font(.title2.weight(.semibold)).textSelection(.enabled)
                     WorkbenchTaskBadge(task: task)
                     Divider()
+                    detailLine("累计 Token", value: task.tokensUsed.map { $0.formatted() } ?? "未提供")
+                    detailLine("输入 Token", value: task.inputTokens.map { $0.formatted() } ?? "未提供")
+                    detailLine("输出 Token", value: task.outputTokens.map { $0.formatted() } ?? "未提供")
+                    detailLine("缓存输入", value: task.cachedInputTokens.map { $0.formatted() } ?? "未提供")
+                    detailLine("消耗 Credit", value: "服务未提供")
+                    Text("Token 为此会话累计用量，含重复输入及缓存输入；任务 Credit 无法由 Token 或账号余额变化准确换算。")
+                        .font(.caption).foregroundStyle(.secondary)
                     detailLine("来源", value: "本机 Codex")
                     detailLine("最近活动", value: workbenchDate(task.at, includeYear: true))
                     VStack(alignment: .leading, spacing: 8) {
@@ -400,12 +483,14 @@ private struct WorkbenchQuotaPage: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    WorkbenchHeader(title: "额度与趋势", subtitle: "按服务返回的额度窗口展示 · 仅查看，不消耗重置券")
+                    WorkbenchHeader(title: "额度与用量", subtitle: "套餐额度、Credit 余额与重置券分开展示")
                     if let error = model.snapshot.quotaError {
                         WorkbenchNotice(message: "额度更新失败：\(error)", symbol: "exclamationmark.triangle")
                     } else if model.snapshot.stale {
                         WorkbenchNotice(message: "额度数据已过期。下方保留最近一次采样，不能代表当前剩余额度。", symbol: "clock")
                     }
+                    QuotaResetCard(model:model)
+                    AccountUsageHistory(snapshot:model.snapshot)
                     if model.snapshot.windows.isEmpty {
                         WorkbenchEmptyState(title: "等待额度数据", detail: "确认 Codex 已登录，后台会定期刷新额度。未知额度不会显示为 0。", symbol: "chart.xyaxis.line")
                     } else if model.snapshot.windows.count == 1, let quota = model.snapshot.windows.first {
@@ -465,7 +550,7 @@ private struct WorkbenchQuotaPage: View {
                         Text(quota.name).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    QuotaRing(remaining: quota.remaining, stale: model.snapshot.stale, size: 75)
+                    QuotaRing(remaining: quota.remaining, stale: model.snapshot.stale, size: 75, credits:model.snapshot.credits,resetCredits:model.snapshot.resetCredits)
                 }
             }
             Divider()

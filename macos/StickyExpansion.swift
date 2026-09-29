@@ -67,6 +67,7 @@ private struct StickyExpansionContent:View {
                 Button(action:close) {Image(systemName:"xmark")}.help("收起临时详情").accessibilityLabel("收起临时详情")
             }.font(.system(size:10)).buttonStyle(.plain)))
             .clipShape(RoundedRectangle(cornerRadius:16))
+            .desktopAppearance(model.desktopPreferences)
             .preferredColorScheme(model.appearance.preferredScheme)
             .environment(\.locale,Locale(identifier:"zh_CN"))
     }

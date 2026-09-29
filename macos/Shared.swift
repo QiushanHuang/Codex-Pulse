@@ -18,14 +18,67 @@ struct QuotaWindow: Codable, Identifiable {
 }
 struct PulseTask: Codable, Identifiable {
     let id: String; let title: String; let status: String; let at: Double
+    var tokensUsed: Int? = nil
+    var inputTokens: Int? = nil
+    var outputTokens: Int? = nil
+    var cachedInputTokens: Int? = nil
+    var comparableTokens:Int? {tokensUsed.flatMap{$0>=0 ? $0:nil}}
+    var tokenLabel: String { comparableTokens.map { PulseUsageFormat.compact(Double($0)) + " tokens" } ?? "— tokens" }
+    var usageSummary: String { tokenLabel + " · Credit 未提供" }
     var label: String { ["active":"运行中", "completed":"轮次结束", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
     var color: Color { status == "active" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : .secondary }
+}
+enum PulseUsageFormat {
+    static func compact(_ value: Double) -> String {
+        if value >= 1_000_000 { return String(format:"%.2fM",value / 1_000_000) }
+        if value >= 1_000 { return String(format:"%.1fK",value / 1_000) }
+        return value.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier:"en_US")))
+    }
+}
+struct PulseCredits: Codable {
+    let balance: Double?
+    let unlimited: Bool
+    func display(fresh: Bool, compact: Bool = false) -> String {
+        guard fresh else { return "—" }
+        if unlimited { return "∞" }
+        guard let balance, balance.isFinite else { return "—" }
+        return compact ? PulseUsageFormat.compact(balance) : balance.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier:"en_US")))
+    }
+}
+struct ResetVoucher:Codable,Identifiable {let id:String;let expiresAt:Double?;let grantedAt:Double?}
+struct QuotaResetResult:Codable {
+    let requestID:String
+    let accountKey:String
+    let state:String
+    let outcome:String?
+    let message:String
+    let at:Double
+    var uncertain:Bool {state == "pending" || state == "unknown"}
+    var succeeded:Bool {state == "completed" && (outcome == "reset" || outcome == "alreadyRedeemed")}
+    func pendingID(for key:String?)->String? {
+        guard uncertain,key==accountKey,UUID(uuidString:requestID) != nil else{return nil}
+        return requestID.lowercased()
+    }
+}
+enum QuotaResetPolicy {
+    static func validAccount(_ key:String?)->Bool {key?.range(of:"^[0-9a-f]{64}$",options:.regularExpression) != nil}
+    static func canStart(accountKey:String?,fresh:Bool,count:Int?,busy:Bool,result:QuotaResetResult?)->Bool {
+        guard !busy,validAccount(accountKey) else{return false}
+        return result?.pendingID(for:accountKey) != nil || (fresh && (count ?? 0)>0)
+    }
 }
 struct PulseEvent: Codable { let kind: String; let at: Double; let message: String }
 struct KeyboardState: Codable { let status: String; let message: String }
 struct PulseSnapshot: Codable {
     var generatedAt: Double; var quotaAt: Double; var windows: [QuotaWindow]; var tasks: [PulseTask]
     var events: [PulseEvent]; var quotaError: String?; var taskError: String?; var resetCredits: Int?
+    var credits: PulseCredits? = nil
+    var accountKey:String? = nil
+    var resetVouchers:[ResetVoucher]? = nil
+    var usage: AccountUsage? = nil
+    var usageAt: Double? = nil
+    var usageError: String? = nil
+    var usageStale:Bool {usageError != nil || Date().timeIntervalSince1970-(usageAt ?? 0)>660 || Date().timeIntervalSince1970-generatedAt>30}
     var keyboard: KeyboardState
     static let empty = PulseSnapshot(generatedAt: 0, quotaAt: 0, windows: [], tasks: [], events: [], quotaError: "请先打开 Codex Pulse 启动监控", taskError: nil, resetCredits: nil, keyboard: KeyboardState(status: "off", message: "灯光关闭"))
     static func read() -> PulseSnapshot {
@@ -43,6 +96,11 @@ struct PulseSnapshot: Codable {
 let pulseMint = Color(nsColor:NSColor(name:nil) { appearance in
     appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ?
         NSColor(srgbRed:0.31,green:0.94,blue:0.73,alpha:1):NSColor(srgbRed:0.015,green:0.43,blue:0.32,alpha:1)
+})
+
+let pulseCredit = Color(nsColor:NSColor(name:nil) { appearance in
+    appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ?
+        NSColor(srgbRed:0.77,green:0.65,blue:1,alpha:1):NSColor(srgbRed:0.43,green:0.23,blue:0.76,alpha:1)
 })
 
 // WidgetKit composites its own material over this source gradient.
@@ -76,21 +134,107 @@ struct PulseWindowBackground: View {
     }
 }
 
+enum RingPalette {
+    static func color(_ hex:String?,fallback:Color)->Color {
+        guard let text=DesktopPalette.normalized(hex),let rgb=UInt32(text.dropFirst(),radix:16) else {return fallback}
+        return Color(.sRGB,red:Double((rgb>>16)&255)/255,green:Double((rgb>>8)&255)/255,blue:Double(rgb&255)/255,opacity:1)
+    }
+    static func hex(_ color:Color)->String {
+        let rgb=NSColor(color).usingColorSpace(.sRGB) ?? .white
+        return String(format:"#%02X%02X%02X",Int((rgb.redComponent*255).rounded()),Int((rgb.greenComponent*255).rounded()),Int((rgb.blueComponent*255).rounded()))
+    }
+}
+private struct RingOuterColorKey:EnvironmentKey {static let defaultValue=pulseMint}
+private struct RingInnerColorKey:EnvironmentKey {static let defaultValue=pulseCredit}
+private struct GlassTransparencyKey:EnvironmentKey {static let defaultValue=0.98}
+private struct GlassMaterialKey:EnvironmentKey {static let defaultValue:GlassMaterial = .clear}
+extension EnvironmentValues {
+    var ringOuterColor:Color {get {self[RingOuterColorKey.self]} set {self[RingOuterColorKey.self]=newValue}}
+    var ringInnerColor:Color {get {self[RingInnerColorKey.self]} set {self[RingInnerColorKey.self]=newValue}}
+    var glassMaterial:GlassMaterial {get {self[GlassMaterialKey.self]} set {self[GlassMaterialKey.self]=newValue}}
+    var glassTransparency:Double {get {self[GlassTransparencyKey.self]} set {self[GlassTransparencyKey.self]=newValue}}
+}
+extension View {
+    func desktopAppearance(_ preferences:DesktopPreferences)->some View {
+        self.environment(\.ringCenterContent,preferences.ringCenter)
+            .environment(\.ringOuterColor,RingPalette.color(preferences.outerRingColor,fallback:pulseMint))
+            .environment(\.ringInnerColor,RingPalette.color(preferences.innerRingColor,fallback:pulseCredit))
+            .environment(\.glassTransparency,preferences.glassTransparency)
+            .environment(\.glassMaterial,preferences.glassMaterial)
+    }
+}
+
+private struct RingCenterEnvironmentKey:EnvironmentKey {static let defaultValue:RingCenterContent = .credit}
+extension EnvironmentValues {
+    var ringCenterContent:RingCenterContent {
+        get {self[RingCenterEnvironmentKey.self]}
+        set {self[RingCenterEnvironmentKey.self]=newValue}
+    }
+}
+
 struct QuotaRing: View {
+    @Environment(\.ringCenterContent) private var center
+    @Environment(\.ringOuterColor) private var outerColor
+    @Environment(\.ringInnerColor) private var innerColor
     let remaining: Double?
     let stale: Bool
     var size: CGFloat = 88
-    var tint: Color { stale ? .gray : (remaining ?? 100) <= 10 ? .red : (remaining ?? 100) <= 25 ? .orange : pulseMint }
+    var credits: PulseCredits? = nil
+    var resetCredits:Int? = nil
+    private var valid: Double? { guard !stale, let remaining, remaining.isFinite else { return nil }; return max(0,min(100,remaining)) }
+    private var balance: String { credits?.display(fresh:!stale,compact:true) ?? "—" }
+    private var percent:String {valid.map{String(format:"%.0f",$0)} ?? "—"}
+    private var centerColor:Color {center == .percentage ? outerColor:innerColor}
+    private var centerText:String {
+        switch center {
+        case .credit:return balance
+        case .percentage:return percent
+        case .resetCredits:return !stale ? resetCredits.flatMap{$0>=0 ? String($0):nil} ?? "—":"—"
+        }
+    }
+    private var centerUnit:String {center == .credit ? "credit":center == .percentage ? "% 剩余":"次重置"}
     var body: some View {
+        let width=max(2,size*0.055)
         ZStack {
-            Circle().stroke(.white.opacity(0.09), lineWidth: 7)
-            Circle().trim(from: 0, to: min(1,max(0,(remaining ?? 0)/100)))
-                .stroke(tint, style: StrokeStyle(lineWidth: 7, lineCap: .round)).rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text(remaining.map { String(format: "%.0f", $0) } ?? "—").font(.system(size: size*0.32, weight: .semibold, design: .rounded))
-                Text("% 剩余").font(.system(size: 10)).foregroundStyle(.secondary)
+            Circle().stroke(Color.primary.opacity(0.09),style:StrokeStyle(lineWidth:width,dash:valid == nil ? [2,3]:[]))
+            if let valid {
+                Circle().trim(from:0,to:valid/100).stroke(valid<=10 ? .red:outerColor,style:StrokeStyle(lineWidth:width,lineCap:.round)).rotationEffect(.degrees(-90))
             }
-        }.frame(width: size, height: size)
+            // No credit capacity is supplied. A dashed inner key identifies the
+            // balance; it deliberately does not encode a made-up percentage.
+            Circle().stroke(balance == "—" ? Color.secondary.opacity(0.25):innerColor.opacity(0.55),style:StrokeStyle(lineWidth:max(1.3,width*0.55),dash:[2,3]))
+                .padding(size*0.105)
+            VStack(spacing:size*0.015) {
+                Text(centerText).font(.system(size:size*(center == .credit ? 0.205:0.27),weight:.semibold,design:.rounded)).monospacedDigit()
+                    .foregroundStyle(stale ? Color.secondary:centerColor).lineLimit(1).minimumScaleFactor(0.5)
+                if size>=60 {Text(centerUnit).font(.system(size:max(8,size*0.095))).foregroundStyle(centerColor)}
+                if size>=52 {Text(center == .percentage ? balance+" cr":percent+"%")
+                    .font(.system(size:max(8,size*0.115),weight:.medium)).foregroundStyle(stale ? Color.secondary:(center == .credit ? outerColor:innerColor))}
+            }.frame(width:size*0.56)
+        }.padding(width/2).frame(width:size,height:size)
+            .accessibilityElement(children:.ignore)
+            .accessibilityLabel("剩余额度 \(valid.map{String(format:"%.0f%%",$0)} ?? "待更新")，Credit 余额 \(credits?.display(fresh:!stale) ?? "未提供")，可用重置次数 \(!stale ? resetCredits.map{String($0)} ?? "未提供":"待更新") 次")
+            .help("外环表示套餐剩余百分比；环内可切换显示。Credit 余额和可用重置次数独立，内环标识不表示比例。")
+    }
+}
+
+struct CreditBalanceLine: View {
+    let snapshot: PulseSnapshot
+    var running = true
+    var body: some View {
+        VStack(spacing:5) {
+            HStack {
+                Label("Credit 余额",systemImage:"circle.dotted")
+                Spacer(minLength:4)
+                Text(snapshot.credits?.display(fresh:!snapshot.stale && running) ?? "未提供").monospacedDigit()
+            }
+            HStack {
+                Label("可用重置次数",systemImage:"arrow.counterclockwise")
+                Spacer(minLength:4)
+                Text(!snapshot.stale && running ? snapshot.resetCredits.map{"\($0) 次"} ?? "未提供":"待更新").monospacedDigit()
+            }
+        }.font(.system(size:11,weight:.medium)).foregroundStyle(pulseCredit)
+            .help("Credit 按用量扣减；重置券用于恢复符合条件的套餐窗口。两项独立，使用重置券前需确认。")
     }
 }
 
@@ -150,15 +294,17 @@ struct PulseCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Image(systemName: "waveform.path").foregroundStyle(pulseMint)
-                Text(compact ? "CODEX" : "CODEX PULSE").font(.system(size: 11, weight: .bold, design: .rounded)).tracking(1.5).lineLimit(1)
-                Spacer(minLength: 0)
+                HStack(spacing:7) {
+                    Image(systemName:"waveform.path").foregroundStyle(pulseMint)
+                    Text(compact ? "CODEX":"CODEX PULSE").font(.system(size:11,weight:.bold,design:.rounded)).tracking(1.5).lineLimit(1)
+                }.frame(maxWidth:.infinity,minHeight:18,alignment:.leading)
+
                 if let headerControls {headerControls}
                 Circle().fill(snapshot.stale ? .orange : pulseMint).frame(width: 6,height: 6)
             }
             if compact {
                 HStack {
-                    QuotaRing(remaining: snapshot.primary?.remaining, stale: snapshot.stale, size: 70)
+                    QuotaRing(remaining: snapshot.primary?.remaining, stale: snapshot.stale, size: 70, credits:snapshot.credits,resetCredits:snapshot.resetCredits)
                     Spacer(minLength: 4)
                     VStack(alignment: .trailing, spacing: 8) {
                         Text(snapshot.primary?.label ?? "额度").font(.caption)
@@ -168,7 +314,7 @@ struct PulseCard: View {
                 }
             } else {
                 HStack(spacing: 20) {
-                    QuotaRing(remaining: snapshot.primary?.remaining, stale: snapshot.stale, size: 84)
+                    QuotaRing(remaining: snapshot.primary?.remaining, stale: snapshot.stale, size: 84, credits:snapshot.credits,resetCredits:snapshot.resetCredits)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(snapshot.primary.map { "\($0.name) · \($0.label)" } ?? "等待额度数据").font(.system(size: 13, weight: .medium))
                         if let rate = snapshot.primary?.burnRate {
@@ -184,6 +330,7 @@ struct PulseCard: View {
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            CreditBalanceLine(snapshot:snapshot)
             if expanded {
                 Sparkline(points: snapshot.primary?.history ?? []).frame(height: 34)
                 HStack {
@@ -197,7 +344,10 @@ struct PulseCard: View {
                 ForEach(Array(snapshot.tasks.prefix(3))) { task in
                     HStack(spacing: 7) {
                         Circle().fill(task.color).frame(width: 5,height: 5)
-                        Text(task.title).font(.system(size: 11)).lineLimit(1)
+                        VStack(alignment:.leading,spacing:3) {
+                            Text(task.title).font(.system(size:11)).lineLimit(1)
+                            Text(task.usageSummary).font(.system(size:9)).foregroundStyle(.secondary).lineLimit(1)
+                        }
                         Spacer(minLength: 4)
                         Text(task.label).font(.system(size: 10)).foregroundStyle(task.color)
                     }

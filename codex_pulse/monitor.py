@@ -13,7 +13,7 @@ import threading
 import time
 
 from .codex import AppServer, LocalTasks
-from .core import normalize, change_kind, burn_rate
+from .core import normalize, normalize_credits, normalize_reset_vouchers, normalize_account_usage, apply_account_usage, change_kind, burn_rate
 from .monitor_lock import acquire_monitor_lock, MonitorAlreadyRunning, MonitorParentExited
 
 
@@ -47,6 +47,8 @@ class History:
         self.db.execute('DELETE FROM samples WHERE at < ?', (now - 30*86400,))
         self.db.commit()
         return {'windows': windows, 'newEvents': events, 'accountKey': account,
+                'credits': normalize_credits(raw),
+                'resetVouchers': normalize_reset_vouchers(raw),
                 'resetCredits': (raw.get('rateLimitResetCredits') or {}).get('availableCount')}
 
     def close(self):
@@ -83,21 +85,24 @@ def run(args):
     if not config_path.exists():
         atomic(config_path, {'lighting': False})
     stop, inbox = threading.Event(), queue.Queue()
+    refresh_quota = threading.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: stop.set())
     server = AppServer(args.codex)
     history = History(directory / 'history.sqlite')
     task_reader = LocalTasks()
     snapshot = {'version': 1, 'generatedAt': time.time(), 'quotaAt': 0, 'windows': [], 'tasks': [],
-                'events': [], 'quotaError': '正在读取额度', 'taskError': None, 'resetCredits': None,
+                'events': [], 'quotaError': '正在读取额度', 'taskError': None, 'resetCredits': None, 'credits': None,
+                'usage': None, 'usageAt': 0, 'usageError': '正在读取每日用量',
                 'taskScope': '本机最近 30 个会话 · 完成表示轮次结束', 'keyboard': {'status': 'off', 'message': '灯光关闭'}}
     old_snapshot = load(directory / 'snapshot.json', {})
     # Keep last known values visibly stale while reconnecting; do not manufacture an empty/full quota.
-    for key in ('windows', 'quotaAt', 'resetCredits', 'events', 'accountKey'):
+    for key in ('windows', 'quotaAt', 'resetCredits', 'resetVouchers', 'credits', 'events', 'accountKey', 'usage', 'usageAt'):
         if key in old_snapshot:
             snapshot[key] = old_snapshot[key]
 
     def sample_quota():
+        usage_account, next_usage = None, 0
         while not stop.is_set():
             try:
                 if server.process is None or server.process.poll() is not None:
@@ -106,12 +111,24 @@ def run(args):
                 raw = server.call('account/rateLimits/read')
                 raw['accountId'] = raw.get('accountId') or account.get('email') or f'unidentified-{os.getpid()}'
                 inbox.put(('quota', raw, time.time()))
+                account_key = hashlib.sha256(str(raw['accountId']).encode()).hexdigest()
+                if usage_account != account_key or time.monotonic() >= next_usage:
+                    # Optional analytics failure must not fail a successful quota read.
+                    observation = {'accountKey': account_key}
+                    try:
+                        observation['usage'] = normalize_account_usage(server.call('account/usage/read'))
+                    except Exception as error:
+                        observation['error'] = f'每日用量暂不可用 · {type(error).__name__}'
+                    inbox.put(('usage', observation, time.time()))
+                    usage_account, next_usage = account_key, time.monotonic() + 300
             except Exception as error:
                 inbox.put(('error', f'额度暂不可用 · {type(error).__name__}', time.time()))
                 server.close()
             if args.once:
                 return
-            stop.wait(60)
+            if refresh_quota.wait(60):
+                next_usage = 0
+            refresh_quota.clear()
 
     sampler = threading.Thread(target=sample_quota, daemon=True)
     sampler.start()
@@ -122,11 +139,18 @@ def run(args):
             keyboard = subprocess.Popen([node, str(Path(__file__).resolve().parent.parent / 'scripts' / 'keyboard.mjs'),
                                          'run', str(directory)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     previous_tasks = None
+    refresh_requested = time.time()
+    quota_seen = False
     deadline = time.monotonic()+65
     try:
         while not stop.is_set():
             if args.parent and os.getppid() != args.parent:
                 break
+            request = load(directory / 'quota-refresh-request.json', {})
+            requested_at = request.get('at', 0) if isinstance(request, dict) else 0
+            if isinstance(requested_at, (int, float)) and requested_at > refresh_requested:
+                refresh_requested = requested_at
+                refresh_quota.set()
             try:
                 tasks = task_reader.read()
                 if previous_tasks is not None:
@@ -148,15 +172,19 @@ def run(args):
                     kind, value, at = inbox.get_nowait()
                 except queue.Empty:
                     break
-                got_quota = True
+                got_quota = kind in ('quota', 'error') or got_quota
+                quota_seen = quota_seen or got_quota
                 if kind == 'quota':
                     result = history.observe(value, at)
                     if snapshot.get('accountKey') not in (None, result['accountKey']):
                         snapshot['events'] = []
+                        snapshot.update(usage=None, usageAt=0, usageError='正在读取当前账号用量')
                     snapshot.update({k: v for k, v in result.items() if k != 'newEvents'})
                     snapshot['events'].extend(result['newEvents'])
                     snapshot['quotaAt'] = at
                     snapshot['quotaError'] = None if snapshot['windows'] else '服务未提供额度窗口'
+                elif kind == 'usage':
+                    apply_account_usage(snapshot, value, at)
                 else:
                     snapshot['quotaError'] = value
             now = time.time()
@@ -166,7 +194,7 @@ def run(args):
             if keyboard and keyboard.poll() is not None:
                 snapshot['keyboard'] = {'status': 'error', 'message': '灯光进程已退出；请重新启动监控'}
             atomic(directory / 'snapshot.json', snapshot)
-            if args.once and (got_quota or time.monotonic()>deadline):
+            if args.once and ((quota_seen and not sampler.is_alive()) or time.monotonic()>deadline):
                 print(json.dumps(snapshot, ensure_ascii=False))
                 if snapshot['quotaError']:
                     raise SystemExit(1)
@@ -174,6 +202,7 @@ def run(args):
             stop.wait(1 if args.once else 5)
     finally:
         stop.set()
+        refresh_quota.set()
         if keyboard and keyboard.poll() is None:
             keyboard.terminate()
             try:

@@ -8,7 +8,7 @@ enum WorkbenchRoute: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "总览"
         case .tasks: return "任务"
-        case .quota: return "额度与趋势"
+        case .quota: return "额度与用量"
         case .devices: return "设备"
         case .rules: return "联动规则"
         case .studio: return "灯效工作室"
@@ -40,8 +40,31 @@ enum TaskStatusFilter: String, CaseIterable, Identifiable {
     var title: String { self == .all ? "全部" : self == .active ? "运行中" : self == .attention ? "需要关注" : "轮次结束" }
 }
 
+enum TaskSortOrder:String,CaseIterable,Identifiable {
+    case activity,tokensDescending,tokensAscending
+    var id:String {rawValue}
+    var title:String {
+        switch self {
+        case .activity:return "状态与最近活动"
+        case .tokensDescending:return "Token 从高到低"
+        case .tokensAscending:return "Token 从低到高"
+        }
+    }
+}
+
+struct TaskTokenComparison {
+    let tasks:[PulseTask]
+    var maximum:Int? {tasks.compactMap(\.comparableTokens).max()}
+    var knownCount:Int {tasks.filter{$0.comparableTokens != nil}.count}
+    var missingCount:Int {tasks.count-knownCount}
+    func fraction(for task:PulseTask)->Double? {
+        guard let tokens=task.comparableTokens,let maximum else {return nil}
+        return maximum>0 ? min(1,Double(tokens)/Double(maximum)):0
+    }
+}
+
 enum WorkbenchTasks {
-    static func filtered(_ tasks: [PulseTask], query: String = "", filter: TaskStatusFilter = .all) -> [PulseTask] {
+    static func filtered(_ tasks: [PulseTask], query: String = "", filter: TaskStatusFilter = .all, sort:TaskSortOrder = .activity) -> [PulseTask] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         func priority(_ task: PulseTask) -> Int { task.status == "active" ? 0 : task.status == "completed" ? 2 : 1 }
         return tasks.filter { task in
@@ -55,7 +78,13 @@ enum WorkbenchTasks {
             }
             return matchesQuery && matchesStatus
         }.sorted { lhs, rhs in
-            if priority(lhs) != priority(rhs) { return priority(lhs) < priority(rhs) }
+            if sort == .activity {
+                if priority(lhs) != priority(rhs) { return priority(lhs) < priority(rhs) }
+            } else {
+                let a=lhs.comparableTokens,b=rhs.comparableTokens
+                if (a == nil) != (b == nil) {return a != nil}
+                if let a,let b,a != b {return sort == .tokensDescending ? a>b:a<b}
+            }
             if lhs.at != rhs.at { return lhs.at > rhs.at }
             return lhs.id < rhs.id
         }

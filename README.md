@@ -39,6 +39,11 @@ closes the panel. The ring keeps its size, position and mode.
 
 Enable the sidebar with **⌘⇧B**, then choose its badge and detail sections in Settings.
 Show quota and a few recent tasks, or add reset time, consumption, counts and trend.
+Drag the sidebar handle into the screen to detach it as a sticky card, or back to
+either screen edge to dock. Choose the display from the right-click menu or Settings.
+Drag the expanded panel’s edges/corners to resize it, or enter width and height in
+**Settings → Sticky & Sidebar**. Dimensions are saved; Restore Adaptive Size resets them.
+Sticky cards have no system title bar and can be dragged from inside the card.
 The sidebar is optional and independent of the sticky card.
 
 <p align="center"><img src="docs/images/sticky-mini-dark.png" width="96" alt="Mini quota ring with synthetic remaining percentage"> &nbsp; <img src="docs/images/sticky-compact-dark.png" width="220" alt="Narrow Compact sticky card with synthetic quota data"></p>
@@ -168,6 +173,17 @@ covers demos, permissions, recovery and updates.
 
 ## Quota, tasks and local data
 
+In **额度与用量** (Quota & Usage), **Credit 余额** is the extra usage-point balance;
+**可用重置次数** counts reset vouchers. Use **使用 1 次重置机会** and confirm to request a
+reset of eligible quota windows. The app rechecks the account and available count.
+If the result is uncertain, **重试同次操作** reuses the same request ID. Monitoring alone
+never redeems vouchers. Expiry dates appear when the service supplies them.
+
+**设置 → 便签与侧边栏** now includes Clear, Soft, Contrast and Custom glass presets,
+plus display/position presets and custom X/Y placement. Existing settings are retained.
+
+- **Usage analytics:** View daily/weekly account tokens and sort or compare cumulative task
+  tokens in the task chart. Missing dates remain unknown; per-task Credit charges are unavailable.
 - **Quota and resets:** Pulse reads your account's quota through the installed Codex
   App Server using your existing sign-in. An internet connection is needed. Each quota
   window shows its own duration and reset time; Spark appears separately when available.
@@ -243,7 +259,10 @@ Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在�
 即可收起，拖动圆环也会收起浮层。
 
 按 **⌘⇧B** 开关侧边栏，在设置中选择波形或剩余数字，以及详情显示内容。
-可以只显示额度和几条最近任务，也可加入重置时间、消耗、统计与趋势。侧边栏与便签可独立使用。
+可以只显示额度和几条最近任务，也可加入重置时间、消耗、统计与趋势。侧边栏与便签可独立使用。拖动侧边入口可跨屏移动：靠近左右边缘时吸附，
+拖入屏幕内部时转换成便签；便签拖回边缘可重新停靠。右键菜单或设置中可选择显示器。
+展开面板可拖边缘／边角调整宽高，也可在**设置 → 便签与侧边栏**输入尺寸；自动保存，
+并可恢复自适应。便签去掉系统标题栏，支持框内拖动。
 
 <p align="center"><img src="docs/images/sticky-mini-dark.png" width="96" alt="迷你额度圆环，使用模拟数据"> &nbsp; <img src="docs/images/sticky-compact-dark.png" width="220" alt="220 点宽紧凑便签，使用模拟数据"></p>
 
@@ -356,6 +375,15 @@ macOS 会安排小组件的刷新时间；留意“更新于”时间，或打�
 
 ### 额度、任务与本地数据
 
+在 **额度与用量** 中，**Credit 余额**是额外用量点数，**可用重置次数**是重置券数量。
+点击 **使用 1 次重置机会** 后还需确认，应用会重新核对当前账号和次数；结果不确定时，
+**重试同次操作**沿用相同请求编号。后台监控不会自动兑换重置券，有效期以服务提供的信息为准。
+
+**设置 → 便签与侧边栏**提供清透、柔雾、高对比、自定义外观，以及位置预设和自定义坐标。
+现有透明度、颜色和布局会保留。
+
+- **用量分析：**查看每日／每周账号 Token，并按任务累计 Token 排序或用条形图比较。
+  缺失日期保留未知，任务 Credit 费用暂不可获得。
 - **额度与重置：**通过已安装 Codex 的 App Server 和现有登录状态联网查询。
   各额度窗口分别显示周期与重置时间，Spark 可用时单独展示。查询额度不消耗模型轮次或重置券。
 - **消耗速度与剩余时间：**连续采样五分钟后，按 **额度百分点／小时** 估计近期消耗。

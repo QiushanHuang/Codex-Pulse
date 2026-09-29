@@ -51,6 +51,10 @@ struct LightPreferences: Codable, Equatable {
 final class PulseModel: ObservableObject {
     @Published var snapshot=PulseSnapshot.read()
     @Published var running=false
+    @Published var resetBusy=false
+    @Published var resetResult:QuotaResetResult?
+    @Published var quotaRefreshRequestedAt:Double=0
+    private var resetChild:Process?
     @Published var lighting=false
     @Published var previewScene:String?
     @Published var preferences=LightPreferences()
@@ -125,6 +129,7 @@ final class PulseModel: ObservableObject {
     }
     func refresh() {
         snapshot = .read();running=monitoringRequested && (child?.isRunning ?? false)
+        readResetReceipt()
         let config=readConfig();applyConfig(config)
         if let data=try? Data(contentsOf:PulsePaths.data.appendingPathComponent("devices.json")),let inventory=try? JSONDecoder().decode(DeviceInventory.self,from:data) {deviceInventory=inventory}
         statusBar?.update()
@@ -132,6 +137,53 @@ final class PulseModel: ObservableObject {
         if let preview=config["preview"] as? [String:Any],let at=preview["startedAt"] as? Double,
            Date().timeIntervalSince1970-at < (preview["duration"] as? Double ?? 8) {previewScene=preview["scene"] as? String} else {previewScene=nil}
         if monitoringAllowed && Date().timeIntervalSince(lastReload)>300 {WidgetCenter.shared.reloadAllTimelines();lastReload=Date()}
+    }
+    var resetReady:Bool {
+        let confirmedFresh = running && !snapshot.stale && (!((resetResult?.succeeded) ?? false) || snapshot.quotaAt >= (resetResult?.at ?? 0))
+        return QuotaResetPolicy.canStart(accountKey:snapshot.accountKey,fresh:confirmedFresh,count:snapshot.resetCredits,busy:resetBusy,result:resetResult)
+    }
+    var pendingResetID:String? {resetResult?.pendingID(for:snapshot.accountKey)}
+    private func readResetReceipt() {
+        guard !resetBusy,let key=snapshot.accountKey,QuotaResetPolicy.validAccount(key) else{return}
+        if resetResult?.accountKey != key {resetResult=nil}
+        let url=PulsePaths.data.appendingPathComponent("quota-reset-"+key+".json")
+        if let data=try? Data(contentsOf:url),let candidate=try? JSONDecoder().decode(QuotaResetResult.self,from:data),candidate.accountKey==key,
+           candidate.uncertain || candidate.at >= (resetResult?.at ?? 0) {resetResult=candidate}
+    }
+    func requestQuotaRefresh() {
+        guard monitoringAllowed else{return}
+        let now=Date().timeIntervalSince1970
+        do {
+            let data=try JSONSerialization.data(withJSONObject:["at":now])
+            try data.write(to:PulsePaths.data.appendingPathComponent("quota-refresh-request.json"),options:.atomic)
+            quotaRefreshRequestedAt=now
+        } catch {self.error="无法请求刷新额度"}
+    }
+    func useQuotaReset(accountKey:String,requestID:String) {
+        guard !resetBusy else{return}
+        func rejected(_ message:String) {resetResult=QuotaResetResult(requestID:requestID,accountKey:accountKey,state:"rejected",outcome:nil,message:message,at:Date().timeIntervalSince1970)}
+        guard monitoringAllowed else {rejected("预览模式不会执行真实重置。");return}
+        guard accountKey==snapshot.accountKey,resetReady else {rejected("账号或额度状态已变化，请刷新后重新确认。");return}
+        if let pendingResetID,pendingResetID != requestID {rejected("请先确认上一次重置操作的结果。");readResetReceipt();return}
+        let info=Bundle.main.infoDictionary ?? [:]
+        guard let python=info["PulsePython"] as? String,let resources=Bundle.main.resourceURL else {rejected("缺少重置功能的运行配置。");return}
+        let process=Process(),output=Pipe()
+        process.executableURL=PulseRuntimePaths.resolve(python,resources:resources)
+        process.currentDirectoryURL=resources.appendingPathComponent("backend")
+        process.arguments=["-B","-m","codex_pulse.quota_reset","--data-dir",PulsePaths.data.path,"--request-id",requestID,"--expected-account-key",accountKey,"--confirmed"]
+        process.standardOutput=output;process.standardError=FileHandle.nullDevice
+        process.terminationHandler={[weak self] ended in
+            let data=output.fileHandleForReading.readDataToEndOfFile()
+            let result=try? JSONDecoder().decode(QuotaResetResult.self,from:data)
+            Task { @MainActor in
+                guard let self,self.resetChild === ended else{return}
+                self.resetBusy=false;self.resetChild=nil
+                self.resetResult=result ?? QuotaResetResult(requestID:requestID,accountKey:accountKey,state:"unknown",outcome:nil,message:"未取得操作结果，请沿用同一次请求确认。",at:Date().timeIntervalSince1970)
+                self.readResetReceipt();self.requestQuotaRefresh()
+            }
+        }
+        do {resetBusy=true;resetChild=process;try process.run()}
+        catch {resetBusy=false;resetChild=nil;rejected("重置进程未能启动，未执行重置。");readResetReceipt()}
     }
     func presentWindow(_ id:String,using open:(String)->Void) {
         stickyExpansion?.dismiss()
@@ -267,7 +319,7 @@ struct CodexPulseApp: App {
             .defaultSize(width:1280,height:820)
         Window("Codex Pulse 便签",id:"sticky") {
             StickyDashboard(model:model)
-        }.defaultSize(width:344,height:344).windowResizability(.contentSize)
+        }.defaultSize(width:344,height:384).windowResizability(.contentSize)
         Window("Codex Pulse 设置",id:"settings") {
             PulseSettings(model:model).preferredColorScheme(model.appearance.preferredScheme)
         }

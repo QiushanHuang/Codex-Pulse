@@ -15,24 +15,32 @@ from .core import task_state
 
 
 class AppServer:
-    ALLOWED = {'initialize', 'account/read', 'account/rateLimits/read'}
+    ALLOWED = {'initialize', 'account/read', 'account/rateLimits/read', 'account/usage/read'}
 
     def __init__(self, binary=None):
-        candidates = [
-            '/Applications/Codex.app/Contents/Resources/codex',
-            '/Applications/ChatGPT.app/Contents/Resources/codex',
-            str(Path.home() / 'Applications/Codex.app/Contents/Resources/codex'),
-            str(Path.home() / 'Applications/ChatGPT.app/Contents/Resources/codex'),
-        ]
-        self.binary = binary or next((p for p in candidates if Path(p).is_file()), None) or shutil.which('codex')
-        if not self.binary:
-            raise RuntimeError('找不到 Codex CLI')
+        self.explicit_binary = binary
+        self.binary = binary or self.discover_binary()
         self.process = None
         self.messages = queue.Queue()
         self.next_id = 0
 
+    @staticmethod
+    def discover_binary():
+        candidates = [
+            str(root / f'{app}.app' / 'Contents/Resources' / relative)
+            for root in (Path('/Applications'), Path.home() / 'Applications')
+            for app in ('Codex', 'ChatGPT')
+            for relative in ('codex-cli/CodexCLI.app/Contents/MacOS/codex', 'codex')
+        ]
+        binary = next((p for p in candidates if Path(p).is_file()), None) or shutil.which('codex')
+        if not binary:
+            raise RuntimeError('找不到 Codex CLI')
+        return binary
+
     def start(self):
         self.close()
+        # App updates can move the bundled CLI while Pulse remains running.
+        self.binary = self.explicit_binary or self.discover_binary()
         self.messages = queue.Queue()
         self.process = subprocess.Popen([self.binary, 'app-server', '--listen', 'stdio://'],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -115,7 +123,17 @@ def event_tail(path, max_bytes=512 * 1024):
                                             'item_started', 'item_completed', 'token_count'}:
                 continue
             at = datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')).timestamp()
-            events.append({'type': payload['type'], 'turn_id': payload.get('turn_id'), 'at': at})
+            event = {'type': payload['type'], 'turn_id': payload.get('turn_id'), 'at': at}
+            if payload['type'] == 'token_count':
+                info = payload.get('info') or {}
+                usage = info.get('total_token_usage') if isinstance(info, dict) else None
+                if isinstance(usage, dict):
+                    for source, target in (('total_tokens', 'tokensUsed'), ('input_tokens', 'inputTokens'),
+                                           ('output_tokens', 'outputTokens'), ('cached_input_tokens', 'cachedInputTokens')):
+                        value = usage.get(source)
+                        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 2**63-1:
+                            event[target] = value
+            events.append(event)
         except (ValueError, KeyError, TypeError):
             continue
     return events
@@ -131,10 +149,13 @@ class LocalTasks:
         if not databases:
             raise RuntimeError('本机 Codex 任务数据库不可用')
         with closing(sqlite3.connect(databases[0].as_uri() + '?mode=ro', uri=True, timeout=2)) as db:
-            rows = db.execute('SELECT id, coalesce(name,title), rollout_path, updated_at FROM threads '
+            columns = {row[1] for row in db.execute('PRAGMA table_info(threads)')}
+            token_column = 'tokens_used' if 'tokens_used' in columns else 'NULL'
+            rows = db.execute(f'SELECT id, coalesce(name,title), rollout_path, updated_at, {token_column} FROM threads '
                               'WHERE archived=0 ORDER BY updated_at DESC LIMIT ?', (limit,)).fetchall()
         tasks = []
-        for tid, title, path, updated in rows:
+        for tid, title, path, updated, tokens in rows:
+            usage = {'tokensUsed': tokens if isinstance(tokens, int) and 0 <= tokens <= 2**63-1 else None}
             try:
                 p = Path(path).resolve()
                 # Restrict metadata pointers to this Codex home's session trees.
@@ -145,8 +166,13 @@ class LocalTasks:
                 if self.cache.get(tid, (None,))[0] != key:
                     self.cache[tid] = (key, event_tail(p))
                 state = task_state(self.cache[tid][1], time.time())
+                # Each event is a cumulative observation, never an increment.
+                for event in reversed(self.cache[tid][1]):
+                    if 'tokensUsed' in event:
+                        usage = {k: event[k] for k in ('tokensUsed', 'inputTokens', 'outputTokens', 'cachedInputTokens') if k in event}
+                        break
             except (OSError, ValueError):
                 state = {'status': 'unknown', 'at': updated, 'turnId': None}
-            tasks.append({'id': tid, 'title': title or '未命名任务', **state})
+            tasks.append({'id': tid, 'title': title or '未命名任务', **state, **usage})
         self.cache = {k: v for k, v in self.cache.items() if k in {t['id'] for t in tasks}}
         return sorted(tasks, key=lambda t: (t['status'] != 'active', -t['at']))

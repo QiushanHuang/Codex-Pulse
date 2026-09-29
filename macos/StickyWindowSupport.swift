@@ -4,32 +4,54 @@ import SwiftUI
 // A borderless SwiftUI window does not reliably forward a drag through its
 // context-menu gesture. Own both mouse gestures on a transparent native surface.
 struct MiniRingInteraction:NSViewRepresentable {
+    @Environment(\.ringOuterColor) private var outerColor
+    @Environment(\.ringInnerColor) private var innerColor
+    @Environment(\.glassTransparency) private var transparency
+    @Environment(\.glassMaterial) private var material
     let summary:String
     var remaining:Double?=nil
+    var credits:PulseCredits?=nil
+    var fresh=true
+    var center:RingCenterContent = .credit
+    var resetCredits:Int?=nil
     var onClick:((NSView)->Void)?=nil
     var onDragBegin:(()->Void)?=nil
+    var onDragEnd:((NSWindow)->Void)?=nil
     var clickDescription:String?=nil
     let makeMenu:()->NSMenu
     func makeNSView(context:Context)->MiniRingInteractionView {let view=MiniRingInteractionView();update(view);return view}
     func updateNSView(_ view:MiniRingInteractionView,context:Context) {update(view)}
     private func update(_ view:MiniRingInteractionView) {
         view.makeMenu=makeMenu
+        view.outerTint=NSColor(outerColor);view.innerTint=NSColor(innerColor);view.transparency=transparency;view.material=material
         view.remaining=remaining
+        view.center=center
+        view.resetCreditText=fresh ? resetCredits.map{String($0)} ?? "—":"—"
+        view.creditText=credits?.display(fresh:fresh,compact:true) ?? "—"
         view.onClick=onClick
         view.onDragBegin=onDragBegin
+        view.onDragEnd=onDragEnd
         view.setAccessibilityElement(true);view.setAccessibilityRole(.button)
-        view.setAccessibilityLabel("额度圆环");view.setAccessibilityValue(summary)
+        view.setAccessibilityLabel("额度圆环");view.setAccessibilityValue(summary+"，Credit 余额 "+(credits?.display(fresh:fresh) ?? "未提供")+"，可用重置次数 "+view.resetCreditText+" 次")
         let clickHint=clickDescription.map{$0+"；"} ?? ""
         view.setAccessibilityHelp(clickHint+"拖动移动；右键调整圆环大小和其他设置")
-        view.toolTip=summary+" · "+clickHint+"拖动移动，右键调整大小"
+        view.toolTip=summary+" · 剩余 credit "+(credits?.display(fresh:fresh) ?? "未提供")+" · 内环不表示余额百分比"+" · "+clickHint+"拖动移动，右键调整大小"
     }
 }
 
 final class MiniRingInteractionView:NSView {
-    var remaining:Double? {didSet{needsDisplay=true}}
+    var outerTint=NSColor(pulseMint) {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var innerTint=NSColor(pulseCredit) {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var material:GlassMaterial = .clear {didSet{if material != oldValue {configureGlass()}}}
+    var transparency=0.98 {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var remaining:Double? {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var center:RingCenterContent = .credit {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var resetCreditText="—" {didSet{needsDisplay=true;ink.needsDisplay=true}}
+    var creditText="—" {didSet{needsDisplay=true;ink.needsDisplay=true}}
     var makeMenu:()->NSMenu={NSMenu()}
     var onClick:((NSView)->Void)?
     var onDragBegin:(()->Void)?
+    var onDragEnd:((NSWindow)->Void)?
     var eventScreenLocation:(NSEvent)->NSPoint?={event in
         guard let point=event.cgEvent?.location,let mainScreen=NSScreen.screens.first else{return nil}
         return NSPoint(x:point.x,y:mainScreen.frame.maxY-point.y)
@@ -38,12 +60,46 @@ final class MiniRingInteractionView:NSView {
     private var origin:NSPoint?
     private var didDrag=false
     private let dragThreshold:CGFloat=3
-    override func viewDidChangeEffectiveAppearance() {super.viewDidChangeEffectiveAppearance();needsDisplay=true}
-    override func draw(_ dirtyRect:NSRect) {
+    private var glassView:NSView?
+    private let ink=RingInkView()
+    private var accessibilityObserver:NSObjectProtocol?
+    override init(frame:NSRect) {
+        super.init(frame:frame)
+        ink.owner=self
+        configureGlass()
+        accessibilityObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,object:nil,queue:.main) {[weak self] _ in
+            MainActor.assumeIsolated {self?.configureGlass()}
+        }
+    }
+    required init?(coder:NSCoder) {fatalError("init(coder:) has not been implemented")}
+    deinit {if let accessibilityObserver {NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)}}
+    private func configureGlass() {
+        glassView?.removeFromSuperview();glassView=nil;ink.removeFromSuperview()
+        if #available(macOS 26.0,*),!NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            let glass=NSGlassEffectView(frame:bounds)
+            glass.style = material == .clear ? .clear:.regular;glass.cornerRadius=bounds.width/2
+            glass.autoresizingMask=[.width,.height]
+            ink.frame=bounds;ink.autoresizingMask=[.width,.height]
+            glass.contentView=ink
+            addSubview(glass);glassView=glass
+        }
+        needsDisplay=true
+    }
+    override func layout() {
+        super.layout()
+        if #available(macOS 26.0,*),let glass=glassView as? NSGlassEffectView {glass.cornerRadius=min(bounds.width,bounds.height)/2}
+    }
+    override func viewDidChangeEffectiveAppearance() {super.viewDidChangeEffectiveAppearance();needsDisplay=true;ink.needsDisplay=true}
+    override func draw(_ dirtyRect:NSRect) {if glassView == nil {paintRing(background:true)}}
+    func paintRing(background:Bool) {
         let dark=effectiveAppearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua
         let top=dark ? NSColor(srgbRed:46/255,green:58/255,blue:65/255,alpha:1):NSColor(srgbRed:0.95,green:0.97,blue:0.97,alpha:1)
         let bottom=dark ? NSColor(srgbRed:22/255,green:32/255,blue:37/255,alpha:1):NSColor(srgbRed:0.89,green:0.93,blue:0.94,alpha:1)
-        NSGradient(starting:top,ending:bottom)?.draw(in:NSBezierPath(ovalIn:bounds),angle:-90)
+        if background {NSGradient(starting:top,ending:bottom)?.draw(in:NSBezierPath(ovalIn:bounds),angle:-90)}
+        else {
+            NSColor.windowBackgroundColor.withAlphaComponent(1-transparency).setFill()
+            NSBezierPath(ovalIn:bounds).fill()
+        }
         let diameter=min(bounds.width,bounds.height)
         let width=max(2.5,diameter/16),padding=max(2.5,diameter*5/96)
         let track=NSBezierPath(ovalIn:bounds.insetBy(dx:padding+width/2,dy:padding+width/2))
@@ -51,20 +107,39 @@ final class MiniRingInteractionView:NSView {
         if remaining==nil {track.setLineDash([3,4],count:2,phase:0)}
         NSColor.labelColor.withAlphaComponent(0.10).setStroke();track.stroke()
         if let remaining,remaining.isFinite,remaining>0 {
-            let accent=remaining<=10 ? NSColor.systemRed:(dark ? NSColor(srgbRed:0.31,green:0.94,blue:0.73,alpha:1):NSColor(srgbRed:0.015,green:0.43,blue:0.32,alpha:1))
+            let accent=remaining<=10 ? NSColor.systemRed:outerTint
             let arc=NSBezierPath();arc.lineWidth=width;arc.lineCapStyle = .round
             arc.appendArc(withCenter:NSPoint(x:bounds.midX,y:bounds.midY),radius:diameter/2-padding-width/2,startAngle:90,endAngle:90-min(100,remaining)*3.6,clockwise:true)
             accent.setStroke();arc.stroke()
         }
-        let font=NSFont.systemFont(ofSize:diameter/3,weight:.semibold)
-        let rounded=font.fontDescriptor.withDesign(.rounded).flatMap{NSFont(descriptor:$0,size:diameter/3)} ?? font
-        let text=NSAttributedString(string:remaining.map{String(format:"%.0f",$0)} ?? "—",attributes:[.font:rounded,.foregroundColor:remaining==nil ? NSColor.secondaryLabelColor:NSColor.labelColor])
-        let size=text.size()
-        text.draw(at:NSPoint(x:bounds.midX-size.width/2,y:bounds.midY-size.height/2))
+        let purple=innerTint
+        let inner=NSBezierPath(ovalIn:bounds.insetBy(dx:padding+width+diameter*0.075,dy:padding+width+diameter*0.075))
+        inner.lineWidth=max(1.3,width*0.55);inner.setLineDash([2,3],count:2,phase:0)
+        (creditText == "—" ? NSColor.secondaryLabelColor:purple).withAlphaComponent(0.55).setStroke();inner.stroke()
+        let rim=NSBezierPath(ovalIn:bounds.insetBy(dx:0.7,dy:0.7));rim.lineWidth=0.8
+        NSColor.white.withAlphaComponent(dark ? 0.2:0.5).setStroke();rim.stroke()
+        func label(_ string:String,at y:CGFloat,size:CGFloat,color:NSColor) {
+            var font=NSFont.systemFont(ofSize:size,weight:.semibold)
+            var text=NSAttributedString(string:string,attributes:[.font:font,.foregroundColor:color])
+            if text.size().width>diameter*0.5 {
+                font=NSFont.systemFont(ofSize:size*diameter*0.5/text.size().width,weight:.semibold)
+                text=NSAttributedString(string:string,attributes:[.font:font,.foregroundColor:color])
+            }
+            text.draw(at:NSPoint(x:bounds.midX-text.size().width/2,y:y-text.size().height/2))
+        }
+        let percent=remaining.map{String(format:"%.0f",$0)} ?? "—"
+        let mainText=center == .credit ? creditText:center == .percentage ? percent:resetCreditText
+        let mint=outerTint
+        let color=center == .percentage ? mint:purple
+        label(mainText,at:bounds.midY+(diameter>=60 ? diameter*0.12:0),size:diameter*(center == .credit ? 0.20:0.27),color:mainText == "—" ? .secondaryLabelColor:color)
+        if diameter>=60 {label(center == .credit ? "credit":center == .percentage ? "% 剩余":"次重置",at:bounds.midY-diameter*0.04,size:max(8,diameter*0.095),color:color)}
+        if diameter>=52 {label(center == .percentage ? creditText+" cr":percent+"%",at:bounds.midY-diameter*0.19,size:max(8,diameter*0.11),color:center == .credit ? mint:purple)}
+
+
     }
     override func hitTest(_ point:NSPoint)->NSView? {
-        guard let hit=super.hitTest(point) else{return nil}
-        return containsRingPoint(convert(point,from:superview)) ? hit:nil
+        guard super.hitTest(point) != nil else{return nil}
+        return containsRingPoint(convert(point,from:superview)) ? self:nil
     }
     private func containsRingPoint(_ local:NSPoint)->Bool {
         guard bounds.width>0,bounds.height>0 else{return false}
@@ -99,8 +174,10 @@ final class MiniRingInteractionView:NSView {
             shouldClick = !didDrag && hypot(point.x-anchor.x,point.y-anchor.y)<dragThreshold && containsRingPoint(convert(event.locationInWindow,from:nil))
             if didDrag && !window.frameAutosaveName.isEmpty {window.saveFrame(usingName:window.frameAutosaveName)}
         }
+        let endedDrag=didDrag,draggedWindow=window
         anchor=nil;origin=nil;didDrag=false
-        if shouldClick {onClick?(self)}
+        if endedDrag,let draggedWindow {onDragEnd?(draggedWindow)}
+        else if shouldClick {onClick?(self)}
     }
     override func rightMouseDown(with event:NSEvent) {showMenu(event)}
     override func viewDidMoveToWindow() {super.viewDidMoveToWindow();if window==nil {anchor=nil;origin=nil;didDrag=false}}
@@ -119,6 +196,12 @@ final class MiniRingInteractionView:NSView {
             menu.popUp(positioning:nil,at:point,in:self)
         }
     }
+}
+
+private final class RingInkView:NSView {
+    weak var owner:MiniRingInteractionView?
+    override func draw(_ dirtyRect:NSRect) {owner?.paintRing(background:false)}
+    override func hitTest(_ point:NSPoint)->NSView? {nil}
 }
 
 @MainActor final class MiniRingMenuAction:NSObject {
@@ -172,6 +255,7 @@ struct StickyWindowAccessor:NSViewRepresentable {
         var resizable=false
         var circular=false
         private var appliedCircular=false
+        private var appliedChrome=false
         private var changingChrome=false
         private var originalChrome:Chrome?
         private struct Chrome {
@@ -210,7 +294,9 @@ struct StickyWindowAccessor:NSViewRepresentable {
                 originalMaximum=window?.contentMaxSize ?? originalMaximum
                 originalChrome=window.map{Chrome($0)}
             }
-            apply()
+            // Finish AppKit's attachment transaction before replacing its frame
+            // view; changing style synchronously can detach the incoming content.
+            DispatchQueue.main.async {[weak self] in self?.apply()}
         }
         func apply() {
             guard !changingChrome,let window else{return}
@@ -220,13 +306,13 @@ struct StickyWindowAccessor:NSViewRepresentable {
                 originalChrome=Chrome(window)
             }
             let top=window.frame.maxY
-            if circular != appliedCircular {
+            let desiredStyle:NSWindow.StyleMask=resizable ? [.borderless,.resizable]:.borderless
+            if !appliedChrome || circular != appliedCircular || window.styleMask != desiredStyle {
                 changingChrome=true
-                if circular {
-                    window.styleMask = .borderless;window.isOpaque=false;window.backgroundColor = .clear
-                    window.hasShadow=false;window.isMovableByWindowBackground=true
-                } else {originalChrome?.restore(window)}
-                appliedCircular=circular;appliedSize=nil
+                window.styleMask=desiredStyle
+                window.isOpaque=false;window.backgroundColor = .clear
+                window.hasShadow = !circular;window.isMovableByWindowBackground=true
+                appliedCircular=circular;appliedChrome=true;appliedSize=nil
                 changingChrome=false
             }
             let level:NSWindow.Level=pinned ? .floating:.normal
@@ -250,10 +336,66 @@ struct StickyWindowAccessor:NSViewRepresentable {
             guard !changingChrome else{return}
             changingChrome=true
             defer {changingChrome=false}
-            if appliedCircular,let controlled {originalChrome?.restore(controlled)}
+            if appliedChrome,let controlled {originalChrome?.restore(controlled)}
             controlled?.level=originalLevel;controlled?.hidesOnDeactivate=originalHides
             if appliedSize != nil {controlled?.contentMinSize=originalMinimum;controlled?.contentMaxSize=originalMaximum}
-            controlled=nil;appliedSize=nil;appliedCircular=false;originalChrome=nil
+            controlled=nil;appliedSize=nil;appliedCircular=false;appliedChrome=false;originalChrome=nil
+        }
+    }
+}
+
+// Explicit native dragging inside the card keeps borderless cards
+// movable even when SwiftUI's context-menu gesture owns the surrounding content.
+struct StickyDragHandle:NSViewRepresentable {
+    var excludedRect:CGRect = .zero
+    var onDragEnd:((NSWindow)->Void)?=nil
+    func makeNSView(context:Context)->DragView {
+        let view=DragView();view.identifier=NSUserInterfaceItemIdentifier("sticky-drag-handle")
+        view.setAccessibilityElement(true);view.setAccessibilityRole(.group)
+        view.setAccessibilityLabel("拖动便签");view.toolTip="在框内按住拖动；右键打开菜单"
+        view.excludedRect=excludedRect;view.onDragEnd=onDragEnd
+        return view
+    }
+    func updateNSView(_ view:DragView,context:Context) {view.excludedRect=excludedRect;view.onDragEnd=onDragEnd}
+    final class DragView:NSView {
+        var excludedRect:CGRect = .zero
+        var onDragEnd:((NSWindow)->Void)?
+        var eventScreenLocation:(NSEvent)->NSPoint?={event in
+            guard let point=event.cgEvent?.location,let main=NSScreen.screens.first else{return nil}
+            return NSPoint(x:point.x,y:main.frame.maxY-point.y)
+        }
+        private var anchor:NSPoint?
+        private var origin:NSPoint?
+        private var dragging=false
+        override var isFlipped:Bool {true}
+        override var mouseDownCanMoveWindow:Bool {false}
+        override func acceptsFirstMouse(for event:NSEvent?)->Bool {true}
+        override func mouseDown(with event:NSEvent) {
+            guard let window else{return}
+            anchor=window.convertPoint(toScreen:event.locationInWindow);origin=window.frame.origin;dragging=false
+        }
+        override func mouseDragged(with event:NSEvent) {
+            guard let window,let anchor,let origin else{return}
+            let point=eventScreenLocation(event) ?? window.convertPoint(toScreen:event.locationInWindow)
+            guard dragging || hypot(point.x-anchor.x,point.y-anchor.y)>=3 else{return}
+            dragging=true
+            window.setFrameOrigin(NSPoint(x:origin.x+point.x-anchor.x,y:origin.y+point.y-anchor.y))
+        }
+        override func mouseUp(with event:NSEvent) {
+            let moved=dragging,draggedWindow=window
+            anchor=nil;origin=nil;dragging=false
+            if moved,let draggedWindow {
+                if !draggedWindow.frameAutosaveName.isEmpty {draggedWindow.saveFrame(usingName:draggedWindow.frameAutosaveName)}
+                onDragEnd?(draggedWindow)
+            }
+        }
+        override func viewDidMoveToWindow() {super.viewDidMoveToWindow();if window==nil {anchor=nil;origin=nil;dragging=false}}
+        override func hitTest(_ point:NSPoint)->NSView? {
+            if let event=NSApp.currentEvent,event.type == .rightMouseDown || event.modifierFlags.contains(.control) {return nil}
+            let local=convert(point,from:superview)
+            guard NSBezierPath(roundedRect:bounds,xRadius:20,yRadius:20).contains(local),
+                  !excludedRect.insetBy(dx:-5,dy:-5).contains(local) else {return nil}
+            return super.hitTest(point)
         }
     }
 }

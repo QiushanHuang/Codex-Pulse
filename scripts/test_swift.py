@@ -20,7 +20,9 @@ SUITES = {
     'MenuBar': ['MenuBar'],
     'PresetPagination': ['PresetPagination'],
     'StickyPresentation': ['Shared', 'StickyPresentation'],
-    'StickyWindow': ['StickyWindowSupport', 'PulseConfiguration'],
+    'StickyWindow': ['Shared', 'StickyWindowSupport', 'PulseConfiguration'],
+    'UsagePresentation': ['Shared'],
+    'PeriodUsage': ['Shared'],
     'Trend': ['Shared'],
     'WindowPresentation': ['WindowPresentation'],
     'WorkbenchState': ['Shared', 'WorkbenchState'],
@@ -36,6 +38,8 @@ def main():
     selected = sys.argv[1:] or list(SUITES)
     for name in selected:
         sources = SUITES[name]
+        if 'Shared' in sources:
+            sources = list(dict.fromkeys(sources + ['DesktopPresentation', 'UsageAnalytics']))
         executable = OUT / name
         command = ['xcrun', 'swiftc', '-parse-as-library', '-O', '-sdk', sdk]
         for framework in ('SwiftUI', 'AppKit', 'WidgetKit', 'JavaScriptCore', 'Security', 'Network'):

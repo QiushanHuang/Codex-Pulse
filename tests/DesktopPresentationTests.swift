@@ -3,7 +3,51 @@ import CoreGraphics
 
 @main struct DesktopPresentationTests {
  static func main() throws {
+  let monitors=[DesktopDisplay(id:"left",name:"Left",frame:CGRect(x:-1600,y:0,width:1600,height:1000)),DesktopDisplay(id:"main",name:"Main",frame:CGRect(x:0,y:0,width:1440,height:900))]
+  precondition(DesktopDocking.target(at:CGPoint(x:-1590,y:500),displays:monitors)?.side == .left)
+  precondition(DesktopDocking.target(at:CGPoint(x:1430,y:500),displays:monitors)?.screenID == "main")
+  precondition(DesktopDocking.target(at:CGPoint(x:-10,y:500),displays:monitors)?.side == .right)
+  precondition(DesktopDocking.target(at:CGPoint(x:700,y:500),displays:monitors)==nil,"interior drops detach")
+  precondition(DesktopDocking.target(at:CGPoint(x:700,y:1200),displays:monitors)==nil,"screen gaps do not invent a dock")
+  precondition(DesktopDocking.target(for:CGRect(x:0,y:200,width:220,height:180),displays:monitors)?.side == .left)
+  precondition(DesktopDocking.target(for:CGRect(x:500,y:200,width:220,height:180),displays:monitors)==nil)
+  let clear=DesktopPreferences(GlassPreset.crystal.configuration)
+  let soft=DesktopPreferences(GlassPreset.soft.configuration)
+  precondition(clear.glassMaterial == .clear && clear.glassTransparency>soft.glassTransparency)
+  precondition(soft.glassMaterial == .regular)
+  let legacy=DesktopPreferences(["glassTransparency":1.0,"outerRingColor":"#AABBCC"])
+  precondition(legacy.glassPreset == .custom && legacy.glassTransparency==1 && legacy.outerRingColor=="#AABBCC","migration must retain existing custom appearance")
+  let position=DesktopPlacement.point(x:1,y:0,in:monitors[0].frame)
+  precondition(monitors[0].frame.contains(position),"custom targets stay inside the selected display")
+  precondition(DesktopPositionPreset.leftTop.side == .left && DesktopPositionPreset.rightBottom.position==0.15)
+  let panelSize=DesktopPreferences(["sidebarDetailWidth":520.0,"sidebarDetailHeight":640.0])
+  precondition(panelSize.sidebarDetailWidth==520 && panelSize.sidebarDetailHeight==640)
+  precondition(DesktopPreferences(["sidebarDetailWidth":100.0]).sidebarDetailWidth==300)
+  precondition(DesktopPreferences(["sidebarDetailHeight":Double.nan]).sidebarDetailHeight==nil)
+  let fitted=SidebarGeometry.detail(in:CGRect(x:-400,y:0,width:320,height:400),handle:CGRect(x:-90,y:150,width:48,height:48),side:.right,preferredHeight:1000,preferredWidth:900)
+  precondition(CGRect(x:-400,y:0,width:320,height:400).contains(fitted) && fitted.width==304 && fitted.height==384)
+  let resizeDisplay=CGRect(x:-1600,y:-200,width:1600,height:1000)
+  let resizeOriginal=CGRect(x:-900,y:100,width:520,height:460)
+  precondition(SidebarResizeSession(frame:resizeOriginal,point:CGPoint(x:-700,y:300))==nil,"content controls must not start resizing")
+  for x in [resizeOriginal.minX+4,resizeOriginal.midX,resizeOriginal.maxX-4] {
+   for y in [resizeOriginal.minY+4,resizeOriginal.midY,resizeOriginal.maxY-4] {
+    guard let session=SidebarResizeSession(frame:resizeOriginal,point:CGPoint(x:x,y:y)) else{continue}
+    for delta in [-3000.0,3000.0] {
+     let result=session.frame(at:CGPoint(x:x+delta,y:y+delta),in:resizeDisplay)
+     precondition(resizeDisplay.contains(result) && result.width>=300 && result.height>=200 && result.width<=960 && result.height<=1200,"all edges must respect display and size bounds")
+     if session.horizontal==0 {precondition(result.width==resizeOriginal.width)}
+     if session.vertical==0 {precondition(result.height==resizeOriginal.height)}
+     precondition(session.horizontal<0 ? result.maxX==resizeOriginal.maxX:result.minX==resizeOriginal.minX)
+     precondition(session.vertical<0 ? result.maxY==resizeOriginal.maxY:result.minY==resizeOriginal.minY)
+    }
+   }
+  }
   let defaults=DesktopPreferences()
+  precondition(defaults.glassTransparency==0.98 && defaults.outerRingColor==nil && defaults.innerRingColor==nil)
+  precondition(DesktopPreferences(["glassTransparency":2.0]).glassTransparency==1)
+  precondition(DesktopPreferences(["glassTransparency":Double.nan]).glassTransparency==0.98)
+  precondition(DesktopPreferences(["outerRingColor":"#ff8822", "innerRingColor":"invalid"]).outerRingColor=="#FF8822")
+  precondition(DesktopPreferences(["innerRingColor":"invalid"]).innerRingColor==nil)
   precondition(defaults.stickySize == .standard && !defaults.sidebarEnabled)
   precondition(defaults.sidebarSide == .right && defaults.sidebarAutoHide)
   precondition(defaults.miniDiameter==96)
@@ -97,6 +141,18 @@ import CoreGraphics
    let prefs=DesktopPreferences(roundtrip["windowSettings"] as! [String:Any])
    precondition(prefs.miniClickAction==action && prefs.miniDiameter==57 && prefs.stickySize == .mini,"click action must persist without changing the current mode or diameter")
   }
+  for center in RingCenterContent.allCases {
+   _=try store.saveWindowSettings(["ringCenter":center.rawValue])
+   let config=try store.read()
+   precondition(DesktopPreferences(config["windowSettings"] as! [String:Any]).ringCenter==center)
+  }
+  _=try store.saveWindowSettings(["glassTransparency":0.95,"outerRingColor":"#FF8822","innerRingColor":"#4488FF"])
+  let customConfig=try store.read()
+  let custom=DesktopPreferences(customConfig["windowSettings"] as! [String:Any])
+  precondition(custom.glassTransparency==0.95 && custom.outerRingColor=="#FF8822" && custom.innerRingColor=="#4488FF")
+  _=try store.saveWindowSettings(["outerRingColor":NSNull(),"innerRingColor":NSNull(),"glassTransparency":0.85])
+  let restored=try store.read()
+  precondition(DesktopPreferences(restored["windowSettings"] as! [String:Any]).outerRingColor==nil)
   print("PASS: desktop preference defaults/persistence, small presets, multi-display bounds and sidebar interaction states")
  }
 }

@@ -5,6 +5,7 @@ struct StickyDashboard:View {
     @ObservedObject var model:PulseModel
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
+    @State private var controlsBounds=CGRect.zero
 
     private var controls:some View {
         HStack(spacing:7) {
@@ -27,7 +28,12 @@ struct StickyDashboard:View {
             Button {model.presentWindow("dashboard",using:{openWindow(id:$0)})} label: {
                 Image(systemName:"arrow.up.left.and.arrow.down.right")
             }.help("打开完整工作台").accessibilityLabel("打开完整工作台")
+            Button {dismissWindow(id:"sticky")} label: {Image(systemName:"xmark")}
+                .help("关闭便签").accessibilityLabel("关闭便签")
         }.font(.system(size:10)).buttonStyle(.plain)
+            .background(GeometryReader {proxy in
+                Color.clear.preference(key:StickyControlsBoundsKey.self,value:proxy.frame(in:.named("sticky-card")))
+            })
     }
 
     private var visualCard:some View {
@@ -37,17 +43,24 @@ struct StickyDashboard:View {
     @ViewBuilder private var interactiveCard:some View {
         if model.desktopPreferences.stickySize == .mini {
             let value=DesktopQuotaValue(remaining:model.snapshot.primary?.remaining,fresh:!model.snapshot.stale && model.running)
-            MiniRingInteraction(summary:value.summary,remaining:value.remaining,
+            MiniRingInteraction(summary:value.summary,remaining:value.remaining,credits:model.snapshot.credits,fresh:!model.snapshot.stale && model.running,center:model.desktopPreferences.ringCenter,resetCredits:model.snapshot.resetCredits,
                     onClick:model.desktopPreferences.miniClickAction.target.map {target in {anchor in model.stickyExpansion?.toggle(target,from:anchor)}},
                     onDragBegin:{model.stickyExpansion?.dismiss()},
+                    onDragEnd:{window in model.sidebar?.dockSticky(window)},
                     clickDescription:model.desktopPreferences.miniClickAction.hint,makeMenu:miniMenu)
             .frame(width:model.desktopPreferences.miniDiameter,height:model.desktopPreferences.miniDiameter)
             .allowsHitTesting(true)
-        } else {visualCard.contextMenu {regularMenu}}
+        } else {
+            visualCard.overlay {StickyDragHandle(excludedRect:controlsBounds,onDragEnd:{window in model.sidebar?.dockSticky(window)}).frame(maxWidth:.infinity,maxHeight:.infinity)}
+                .contextMenu {regularMenu}
+        }
     }
     var body:some View {
         interactiveCard
-        .preferredColorScheme(model.appearance.preferredScheme).tint(pulseMint)
+        .coordinateSpace(name:"sticky-card")
+        .onPreferenceChange(StickyControlsBoundsKey.self) {controlsBounds=$0}
+        .desktopAppearance(model.desktopPreferences)
+            .preferredColorScheme(model.appearance.preferredScheme).tint(pulseMint)
         .environment(\.locale,Locale(identifier:"zh_CN"))
         .background(WindowModeRegistration(mode:.sticky,coordinator:model.windows).allowsHitTesting(false).accessibilityHidden(true))
         .background(StickyWindowAccessor(pinned:model.stickyPinned,contentSize:model.desktopPreferences.stickyContentSize,
@@ -59,6 +72,15 @@ struct StickyDashboard:View {
         }
     }
     @ViewBuilder private var regularMenu:some View {
+            Menu("环内显示") {
+                ForEach(RingCenterContent.allCases) {option in
+                    Button {model.saveDesktopSettings(["ringCenter":option.rawValue])} label: {
+                        if model.desktopPreferences.ringCenter==option {Label(option.title,systemImage:"checkmark")}
+                        else {Text(option.title)}
+                    }
+                }
+            }
+            Divider()
             ForEach(StickySize.allCases) {size in
                 Button {model.setStickySize(size)} label: {
                     if model.desktopPreferences.stickySize == size {Label(size.title+"便签",systemImage:"checkmark")}
@@ -76,6 +98,12 @@ struct StickyDashboard:View {
         let menu=NSMenu();menu.autoenablesItems=false
         let slider=NSMenuItem();slider.view=MiniRingSizeMenuView(diameter:model.desktopPreferences.miniDiameter,change:{model.setMiniDiameter($0)})
         menu.addItem(slider)
+        let centerItem=NSMenuItem(title:"环内显示",action:nil,keyEquivalent:"")
+        let centers=NSMenu()
+        for option in RingCenterContent.allCases {
+            centers.addItem(MiniRingMenuAction.item(option.title,selected:model.desktopPreferences.ringCenter==option){model.saveDesktopSettings(["ringCenter":option.rawValue])})
+        }
+        centerItem.submenu=centers;menu.addItem(centerItem)
         let presets=NSMenuItem(title:"常用尺寸",action:nil,keyEquivalent:"")
         let sizes=NSMenu()
         for diameter in [48.0,64,80,96,128] {
@@ -117,9 +145,9 @@ struct StickyCardContent:View {
             if size == .mini {
                 let value=DesktopQuotaValue(remaining:snapshot.primary?.remaining,fresh:!snapshot.stale && running)
                 let diameter=MiniRingSizing.normalized(miniDiameter)
-                DesktopQuotaRing(value:value,lineWidth:max(2.5,diameter/16),fontSize:diameter/3).padding(max(2.5,diameter*5/96))
+                DesktopQuotaRing(value:value,lineWidth:max(2.5,diameter/16),fontSize:diameter/3,credits:snapshot.credits,resetCredits:snapshot.resetCredits).padding(max(2.5,diameter*5/96))
                     .frame(width:diameter,height:diameter)
-                    .background(PulseWindowBackground().clipShape(Circle()))
+                    .background(SidebarSurface(radius:diameter/2))
                     .contentShape(Circle())
                     .help((notice ?? value.summary)+" · 拖动移动，右键打开菜单")
                     .accessibilityHint("拖动移动，右键打开便签菜单")
@@ -133,24 +161,26 @@ struct StickyCardContent:View {
                 .padding(12)
                 .frame(minWidth:320,idealWidth:344,maxWidth:440,minHeight:320,alignment:.topLeading)
             } else {smallContent}
-        }.background {if size != .mini {PulseWindowBackground()}}
+        }.background {if size != .mini {SidebarSurface(radius:20)}}
     }
     private var smallContent:some View {
-        VStack(alignment:.leading,spacing:8) {
+        VStack(alignment:.leading,spacing:6) {
                 HStack(spacing:5) {
-                    Image(systemName:"waveform.path").foregroundStyle(pulseMint)
-                    Text("PULSE").font(.system(size:10,weight:.bold,design:.rounded)).tracking(1.2)
-                    Spacer(minLength:2)
+                    HStack(spacing:5) {
+                        Image(systemName:"waveform.path").foregroundStyle(pulseMint)
+                        Text("PULSE").font(.system(size:10,weight:.bold,design:.rounded)).tracking(1.2)
+                    }.frame(maxWidth:.infinity,minHeight:18,alignment:.leading)
+
                     if let controls {controls}
                 }
-                HStack(alignment:.firstTextBaseline,spacing:8) {
-                    Text(remaining.map{String(format:"%.0f",$0)} ?? "—")
-                        .font(.system(size:36,weight:.semibold,design:.rounded)).monospacedDigit()
-                    Text("% 剩余").font(.system(size:10)).foregroundStyle(.secondary)
-                    Spacer(minLength:0)
-                    Text(snapshot.primary?.label ?? "额度").font(.caption).foregroundStyle(.secondary)
+                HStack(spacing:12) {
+                    QuotaRing(remaining:remaining,stale:snapshot.stale || !running,size:76,credits:snapshot.credits,resetCredits:snapshot.resetCredits)
+                    VStack(alignment:.leading,spacing:5) {
+                        Text(snapshot.primary?.label ?? "额度").font(.system(size:11)).foregroundStyle(.secondary)
+                        Text(remaining.map{String(format:"%.0f%% 剩余",$0)} ?? "等待额度").font(.system(size:14,weight:.semibold)).foregroundStyle(pulseMint)
+                        Text("内环 · Credit").font(.system(size:9)).foregroundStyle(pulseCredit)
+                    }
                 }
-                DesktopQuotaMeter(remaining:remaining,stale:snapshot.stale)
                 if size == .compact {
                     let metrics=StickyQuotaMetrics(quota:snapshot.primary,fresh:!snapshot.stale && running)
                     HStack {
@@ -175,4 +205,9 @@ struct StickyCardContent:View {
         .padding(12)
         .frame(width:size.contentSize.width,height:size.contentSize.height,alignment:.topLeading)
     }
+}
+
+private struct StickyControlsBoundsKey:PreferenceKey {
+    static let defaultValue=CGRect.zero
+    static func reduce(value:inout CGRect,nextValue:()->CGRect) {let next=nextValue();if !next.isEmpty {value=next}}
 }

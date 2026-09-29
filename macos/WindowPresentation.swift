@@ -7,6 +7,7 @@ enum PulseWindowMode:String {case dashboard,sticky}
     private weak var dashboard:NSWindow?
     private weak var sticky:NSWindow?
     private(set) var selected:PulseWindowMode?
+    private var stickyPlacement:NSPoint?
     private var presenting=false
     private var waitingForWindow=false
     private var pendingCreations:Set<PulseWindowMode>=[]
@@ -18,6 +19,25 @@ enum PulseWindowMode:String {case dashboard,sticky}
         self.show=show;self.hide=hide
     }
     private func window(_ mode:PulseWindowMode)->NSWindow? {mode == .dashboard ? dashboard:sticky}
+    func hasWindow(_ mode:PulseWindowMode)->Bool {window(mode) != nil}
+    func placeNextSticky(at center:NSPoint) {stickyPlacement=center}
+    @discardableResult func presentExisting(_ mode:PulseWindowMode)->Bool {
+        guard window(mode) != nil else{return false}
+        present(mode){_ in};return true
+    }
+    func hideSticky() {if let sticky {hideStickyForDocking(sticky)}}
+    func hideStickyForDocking(_ window:NSWindow) {
+        guard sticky === window else{return}
+        hide(window);stickyPlacement=nil
+        if selected == .sticky {selected=nil}
+    }
+    private func positionSticky(_ window:NSWindow,center:NSPoint) {
+        guard let screen=NSScreen.screens.first(where:{$0.visibleFrame.contains(center)}) ?? NSScreen.main else{return}
+        let bounds=screen.visibleFrame
+        window.setFrameOrigin(NSPoint(x:max(bounds.minX+8,min(center.x-window.frame.width/2,bounds.maxX-window.frame.width-8)),
+                                      y:max(bounds.minY+8,min(center.y-window.frame.height/2,bounds.maxY-window.frame.height-8))))
+        if !window.frameAutosaveName.isEmpty {window.saveFrame(usingName:window.frameAutosaveName)}
+    }
     private func opposite(_ mode:PulseWindowMode)->NSWindow? {mode == .dashboard ? sticky:dashboard}
     func register(_ mode:PulseWindowMode,window:NSWindow) {
         guard self.window(mode) !== window else{return}
@@ -58,6 +78,13 @@ enum PulseWindowMode:String {case dashboard,sticky}
         waitingForWindow=false;presenting=true
         if let other=opposite(mode){hide(other)}
         show(window);presenting=false
+        if mode == .sticky,let center=stickyPlacement {
+            stickyPlacement=nil;positionSticky(window,center:center)
+            DispatchQueue.main.async {[weak self,weak window] in
+                guard let self,let window,self.selected == .sticky else{return}
+                self.positionSticky(window,center:center)
+            }
+        }
         initialFocus.remove(mode);clearInitialFocus(mode,window:window)
     }
     func becameKey(_ mode:PulseWindowMode,window:NSWindow) {
