@@ -203,6 +203,7 @@ class LocalTasks:
         self.offsets = {}
         self.reviewers = {}
         self.watched_paths = set()
+        self.usage_observations = []
 
     def indexed_reviewer(self, tid, path, stat, turn_id, now):
         """Read a turn's small context once, even when it is outside the session tail."""
@@ -238,6 +239,10 @@ class LocalTasks:
             pass
         self.reviewers[tid] = (key, reviewer, now)
         return reviewer
+
+    def take_usage_observations(self):
+        observations, self.usage_observations = self.usage_observations, []
+        return observations
 
     def read(self, limit=30):
         if limit <= 0:
@@ -289,6 +294,8 @@ class LocalTasks:
                     # Pay this bounded scan once; streaming updates still read only appended bytes.
                     events, offset = event_chunk(p, self.offsets.get(tid, 0) if append else 0,
                                                  max_bytes=512*1024 if append else 2*1024*1024)
+                    self.usage_observations.extend({'taskId':tid,'at':e['at'],'tokensUsed':e['tokensUsed']}
+                                                   for e in events if 'tokensUsed' in e)
                     self.offsets[tid] = offset
                     combined = (old_events if append else []) + events
                     self.cache[tid] = (key, compact_task_events(combined))

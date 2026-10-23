@@ -19,6 +19,17 @@ import SwiftUI
             PulseTask(id:"12345678-1234-1234-1234-123456789003",title:"整理本周工作记录",status:"completed",at:now-600,tokensUsed:9360)
         ],events:[],quotaError:nil,taskError:nil,resetCredits:2,credits:PulseCredits(balance:128.5,unlimited:false),accountKey:String(repeating:"a",count:64),resetVouchers:[ResetVoucher(id:"demo",expiresAt:now+86400*3,grantedAt:now-100)],usage:demoUsage,usageAt:now,keyboard:KeyboardState(status:"off",message:"演示数据"))
     }
+    static var usageHistory:UsageHistoryReply {
+        UsageHistoryReply(start:now-3600,end:now,generatedAt:now,
+            creditPoints:(0..<13).map{UsageTimelinePoint(at:now-3600+Double($0)*300,value:250-Double($0)*7,segment:0)},
+            creditChanges:(1..<13).map{UsageTimelinePoint(at:now-3600+Double($0)*300,value:7)},
+            quotas:[UsageQuotaSeries(id:"short",label:"Codex · 5 小时",points:(0..<13).map{UsageTimelinePoint(at:now-3600+Double($0)*300,value:90-Double($0)*2)})],
+            tokenPoints:(1..<13).map{UsageTimelinePoint(at:now-3600+Double($0)*300,value:Double($0)*1600+4500,perMinute:Double($0)*320+900)},
+            tasks:[UsageTaskSummary(id:"demo",title:"完善桌面状态面板",tokens:124800,perMinute:2080,firstAt:now-3600,lastAt:now,samples:13,adjustments:0),
+                   UsageTaskSummary(id:"demo2",title:"检查图表范围与任务速度",tokens:54000,perMinute:900,firstAt:now-3600,lastAt:now,samples:9,adjustments:0)],
+            credit:UsageCreditSummary(decreased:84,increased:0,perHour:84,gaps:0),tokens:178800,tokenPerMinute:2980,
+            tokenAdjustments:0,bucketSeconds:300,recordedFrom:now-3600,accountRecordedFrom:now-3600,taskRecordedFrom:now-3600)
+    }
     static func model()->PulseModel {
         let directory=FileManager.default.temporaryDirectory.appendingPathComponent("pulse-desktop-preview-"+UUID().uuidString)
         if CommandLine.arguments.contains("--drag-repro") {
@@ -347,6 +358,11 @@ import SwiftUI
                 let alert=TaskAlert(id:kind,taskID:"preview",kind:kind,at:DesktopFixture.now,title:kind=="completed" ? "界面与快捷操作验证完成":"检查新版侧边栏与任务提醒，需要你的处理")
                 try render(TaskAlertCard(alert:alert,open:{},dismiss:{}),scheme:scheme,to:destination.appendingPathComponent("reminder-\(kind)-\(name).png"))
             }
+            try render(UsageTimelineView(snapshot:DesktopFixture.snapshot,fixture:DesktopFixture.usageHistory).frame(width:760).background(scheme == .dark ? Color.black:Color.white),scheme:scheme,to:destination.appendingPathComponent("usage-timeline-\(name).png"))
+            for metric in [UsageTimelineMetric.tokens,.tokenRate,.quota] {
+                try render(UsageTimelineView(snapshot:DesktopFixture.snapshot,fixture:DesktopFixture.usageHistory,metric:metric).frame(width:760).background(scheme == .dark ? Color.black:Color.white),scheme:scheme,to:destination.appendingPathComponent("usage-timeline-\(metric.rawValue)-\(name).png"))
+            }
+            try render(UsageTimelineView(snapshot:.empty).frame(width:660).background(scheme == .dark ? Color.black:Color.white),scheme:scheme,to:destination.appendingPathComponent("usage-timeline-empty-\(name).png"))
             try render(AccountUsageHistory(snapshot:DesktopFixture.snapshot).frame(width:680),scheme:scheme,to:destination.appendingPathComponent("daily-usage-\(name).png"))
             for center in RingCenterContent.allCases {
                 try render(QuotaRing(remaining:62,stale:false,size:96,credits:PulseCredits(balance:128.5,unlimited:false),resetCredits:2).environment(\.ringCenterContent,center),scheme:scheme,to:destination.appendingPathComponent("ring-center-\(center.rawValue)-\(name).png"))
@@ -417,7 +433,7 @@ private struct DesktopPreviewApp:App {
             StickyDashboard(model:model).background(PreviewFrameRecorder().allowsHitTesting(false))
         }.defaultSize(width:344,height:344).windowResizability(.contentSize)
         Window("Codex Pulse 用量预览",id:"usage-preview") {
-            ScrollView {VStack(spacing:20) {QuotaResetCard(model:model);AccountUsageHistory(snapshot:DesktopFixture.snapshot)}.padding(20)}
+            ScrollView {VStack(spacing:20) {QuotaResetCard(model:model);UsageTimelineView(snapshot:DesktopFixture.snapshot,fixture:DesktopFixture.usageHistory);AccountUsageHistory(snapshot:DesktopFixture.snapshot)}.padding(20)}
                 .preferredColorScheme(model.appearance.preferredScheme)
                 .frame(minWidth:600,minHeight:700)
         }

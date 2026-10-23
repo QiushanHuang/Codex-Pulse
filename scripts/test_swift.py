@@ -8,6 +8,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/swift-tests'
 SUITES = {
+    'UsageTimeline': ['UsageTimelineModel'],
     'TaskSound': ['TaskAlertPolicy'],
     'WidgetTaskState': ['WidgetShared'],
     'TaskNotification': ['TaskAlertPolicy'],

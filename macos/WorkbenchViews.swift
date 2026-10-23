@@ -490,6 +490,7 @@ private struct WorkbenchQuotaPage: View {
                         WorkbenchNotice(message: "额度数据已过期。下方保留最近一次采样，不能代表当前剩余额度。", symbol: "clock")
                     }
                     QuotaResetCard(model:model)
+                    UsageTimelineView(snapshot:model.snapshot)
                     AccountUsageHistory(snapshot:model.snapshot)
                     if model.snapshot.windows.isEmpty {
                         WorkbenchEmptyState(title: "等待额度数据", detail: "确认 Codex 已登录，后台会定期刷新额度。未知额度不会显示为 0。", symbol: "chart.xyaxis.line")

@@ -18,6 +18,7 @@ from .core import normalize, normalize_credits, normalize_reset_vouchers, normal
 from .monitor_lock import acquire_monitor_lock, MonitorAlreadyRunning, MonitorParentExited
 from .attention import overlay
 from .file_wake import FileWake
+from . import usage_history
 from .remote_notifications import RemoteNotifications, read_json, status as remote_status
 
 
@@ -65,8 +66,10 @@ class History:
         self.db = sqlite3.connect(path)
         self.db.execute('CREATE TABLE IF NOT EXISTS samples (account TEXT, window TEXT, at REAL, used REAL, reset REAL, data TEXT)')
         self.db.execute('CREATE INDEX IF NOT EXISTS lookup ON samples(account, window, at)')
+        usage_history.initialize(self.db)
+        self.db.execute('PRAGMA journal_mode=WAL')
 
-    def observe(self, raw, now):
+    def observe(self, raw, now, record_credit=True):
         account = hashlib.sha256(str(raw.get('accountId') or 'unknown').encode()).hexdigest()
         windows, events = normalize(raw), []
         for window in windows:
@@ -87,7 +90,8 @@ class History:
             window['burnRate'] = rate
             window['hoursLeft'] = round(window['remaining']/rate, 1) if rate and rate > 0 else None
             window['history'] = [{'at': p['at'], 'remaining': 100-p['used']} for p in points]
-        self.db.execute('DELETE FROM samples WHERE at < ?', (now - 30*86400,))
+        if record_credit:
+            usage_history.observe_credit(self.db, account, normalize_credits(raw), now)
         self.db.commit()
         return {'windows': windows, 'newEvents': events, 'accountKey': account,
                 'credits': normalize_credits(raw),
@@ -236,6 +240,12 @@ def run(args):
                     refresh_quota.set()
                     next_quota_trigger = time.monotonic() + 5
                 previous_tasks = {t['id']: t for t in tasks}
+                try:
+                    usage_history.observe_tasks(history.db, tasks, task_reader.take_usage_observations(), time.time())
+                    snapshot['historyError'] = None
+                except sqlite3.Error:
+                    history.db.rollback()
+                    snapshot['historyError'] = '用量历史暂不可写，请检查磁盘空间。'
                 snapshot['tasks'] = tasks
                 snapshot['taskError'] = None
             except Exception as error:
@@ -272,7 +282,7 @@ def run(args):
                 elif kind == 'quota_push':
                     if last_quota:
                         last_quota = merge_quota_push(last_quota, value)
-                        result = history.observe(last_quota, at)
+                        result = history.observe(last_quota, at, record_credit=False)
                         snapshot.update({k: v for k, v in result.items() if k != 'newEvents'})
                         snapshot['events'].extend(result['newEvents'])
                     # Only full reads establish freshness for all windows.

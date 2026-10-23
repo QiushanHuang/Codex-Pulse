@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — time-range usage history (2026-10-23)
+
+- Persist Credit balances and timestamped local task counters. Explore custom time
+  ranges with zoom, drag selection, quota/Credit/Token charts, task filters and
+  per-task average Token speed. Keep balance drops separate from refills and
+  preserve missing observations. See [usage history](docs/usage-history.md).
+- 新增 Credit 历史、任务 Token 增量与平均速度；支持自定义起止时间、缩放、拖选时段、
+  指标切换与任务筛选。余额下降与补充独立统计，保留未知数据及原有历史。
+
 ## Unreleased — event sounds (2026-10-23)
 
 - Choose from 14 macOS sounds or Silent independently for completion, questions,

@@ -83,6 +83,7 @@ struct PulseSnapshot: Codable {
     var usage: AccountUsage? = nil
     var usageAt: Double? = nil
     var usageError: String? = nil
+    var historyError: String? = nil
     var usageStale:Bool {usageError != nil || Date().timeIntervalSince1970-(usageAt ?? 0)>660 || Date().timeIntervalSince1970-generatedAt>30}
     var keyboard: KeyboardState
     static let empty = PulseSnapshot(generatedAt: 0, quotaAt: 0, windows: [], tasks: [], events: [], quotaError: "请先打开 Codex Pulse 启动监控", taskError: nil, resetCredits: nil, keyboard: KeyboardState(status: "off", message: "灯光关闭"))

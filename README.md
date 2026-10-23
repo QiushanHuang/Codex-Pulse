@@ -65,6 +65,10 @@ Use the workbench to review tasks and quota together, then switch to the sticky 
 to keep them nearby. Add keyboard signals when you want an at-a-glance desk display;
 the workbench is also available on its own.
 
+Explore Credit/quota history and local task Token consumption over a custom time range
+in **Quota & Usage → Time-range analysis**. Zoom or drag to focus on a stage, then
+compare per-task Token speed. [History and measurement limits](docs/usage-history.md).
+
 ## Everyday use
 
 - **Work in an editor or browser while a task runs.** Keep the sticky card nearby and
@@ -355,6 +359,9 @@ macOS 会安排小组件的刷新时间；留意“更新于”时间，或打�
 需要开机启动时，在 **系统设置 → 通用 → 登录项** 中添加安装后的应用。
 
 **额度重置手机通知：** 在 **设置 → 通用 → 额度重置通知** 中选择 Bark 推送或 SMTP 邮件，可分别监测 5 小时、每周自然重置和使用重置券成功。也支持根据未到期券减少及额度提前恢复识别 Tibo 等外部入口的手动重置，数据不足时不猜测。包含保存、测试发送、发送记录与有限重试；推送地址和邮箱授权码存入 macOS 钥匙串。Mac 需联网且监控运行。配置方法见 [额度重置手机通知](docs/quota-mobile-notifications.md)。
+
+在 **额度与用量 → 时段分析** 查询 Credit／额度历史和任务 Token 增量，支持指定时间、
+缩放、拖选与任务平均消耗速度。[记录方式与范围](docs/usage-history.md)。
 
 当前源码在菜单栏 Tibo 入口下增加 **OpenAI 服务状态**。在 **设置 → 通用 → 任务提醒** 开启系统通知或侧边卡片；
 轮次结束提醒直接读取本机记录，权限与问题提醒需点击连接按钮，并在 Codex 中审阅、信任 Hooks。

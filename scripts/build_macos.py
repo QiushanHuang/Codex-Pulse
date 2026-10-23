@@ -13,7 +13,7 @@ except ImportError:
     from input_continuity import read_signature, write_json, build_report
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_SOURCES = ['TaskAlertPolicy', 'SnapshotObserver', 'TaskNotifications', 'QuotaNotificationSettings', 'QuotaResetViews', 'UsageAnalytics', 'ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
+APP_SOURCES = ['UsageTimelineModel', 'UsageTimeline', 'TaskAlertPolicy', 'SnapshotObserver', 'TaskNotifications', 'QuotaNotificationSettings', 'QuotaResetViews', 'UsageAnalytics', 'ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
 
 
 def select_python(candidates=None):
