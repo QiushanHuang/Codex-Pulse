@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — persistent local signing identity (2026-10-24)
+
+- Pin an available local Apple certificate for builds and packaging. Preserve widget
+  entitlements and reject incompatible signed updates or silent ad-hoc fallback.
+  The initial migration from ad-hoc signing may require one final privacy authorization.
+- 固定本机签名证书，构建、安装和打包检查身份兼容性，避免普通更新反复要求输入监控授权。
+  证书不可用时停止，不静默改回临时签名；首次迁移可能需要最后授权一次。
+
 ## Unreleased — time-range usage history (2026-10-23)
 
 - Persist Credit balances and timestamped local task counters. Explore custom time

@@ -16,3 +16,10 @@ class RuntimeTests(unittest.TestCase):
     def test_rejects_when_no_runtime_works(self):
         with self.assertRaisesRegex(RuntimeError, 'Python'):
             build_macos.select_python(['/does/not/exist'])
+
+class SigningDefaultTests(unittest.TestCase):
+    def test_uses_available_certificate_instead_of_changing_ad_hoc_identity_each_update(self):
+        identity={'sha1':'A'*40,'name':'Apple Development: Example (TEST)'}
+        select=getattr(build_macos,'select_signing_identity',lambda **_: {'sha1':'-','name':'Ad hoc'})
+        chosen=select(available=[identity])
+        self.assertEqual(chosen['sha1'],identity['sha1'], 'local builds must keep a certificate-backed identity')

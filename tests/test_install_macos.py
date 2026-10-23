@@ -66,3 +66,22 @@ class WidgetRegistrationTests(unittest.TestCase):
         with patch.object(install_macos.subprocess,'run',return_value=result):
             with self.assertRaises(subprocess.CalledProcessError):
                 install_macos.remove_widget_registration(Path('/tmp/Widget.appex'))
+
+class SignedUpgradeTests(unittest.TestCase):
+    def test_incompatible_signer_is_rejected_before_quit_or_copy(self):
+        from scripts import signing_identity
+        from unittest.mock import Mock
+        old={'identifier':'local.qiushan.CodexPulse','cdhash':'old','team':'TEAM','requirement':'identifier "local.qiushan.CodexPulse" and anchor apple generic'}
+        new={'identifier':'local.qiushan.CodexPulse','cdhash':'new','team':'not set','requirement':'cdhash H"new"'}
+        with tempfile.TemporaryDirectory() as directory:
+            target=Path(directory)/'Applications/Codex Pulse.app'
+            source=Path(directory)/'candidate/Codex Pulse.app'
+            copy=Mock()
+            with patch.object(install_macos,'TARGET',target), \
+                 patch.object(install_macos,'read_signature',side_effect=lambda path:old if path==target else new), \
+                 patch.object(signing_identity,'compare',return_value='changed'), \
+                 patch.object(install_macos.subprocess,'run',return_value=CompletedProcess([],0)), \
+                 patch.object(install_macos.shutil,'copytree',copy):
+                with self.assertRaisesRegex(RuntimeError,'保留输入监控授权'):
+                    install_macos.install(source)
+                copy.assert_not_called()

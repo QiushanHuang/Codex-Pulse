@@ -11,8 +11,10 @@ import uuid
 
 try:
     from .input_continuity import read_signature, build_report, write_json, status_matches
+    from .signing_identity import ensure_compatible
 except ImportError:
     from input_continuity import read_signature, build_report, write_json, status_matches
+    from signing_identity import ensure_compatible
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGET = Path('/Applications/Codex Pulse.app')
@@ -41,7 +43,7 @@ def refresh_widget_registration(source_app=None):
     subprocess.run(['/usr/bin/pluginkit', '-a', str(TARGET / extension)], check=True)
 
 
-def install(app):
+def install(app, *, allow_signing_change=False):
     app = app.resolve()
     if app == TARGET:
         raise RuntimeError('构建来源不能是安装目标')
@@ -49,10 +51,12 @@ def install(app):
     signature = read_signature(app)
     if not signature or signature['identifier'] != 'local.qiushan.CodexPulse':
         raise RuntimeError('不是有效的 Codex Pulse 构建')
+    previous = read_signature(TARGET)
+    ensure_compatible(app, previous, allow_change=allow_signing_change)
     # Refuse to replace a running executable. Quit in the app first so it flushes settings.
     if subprocess.run(['/usr/bin/pgrep', '-x', 'CodexPulse'], capture_output=True).returncode == 0:
         raise RuntimeError('请先在 Codex Pulse 中退出，再重新安装；当前安装尚未替换')
-    receipt = build_report(app, TARGET, read_signature(TARGET))
+    receipt = build_report(app, TARGET, previous)
     stamp = time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6]
     backup = ROOT / 'build/backups' / ('Codex-Pulse-before-input-continuity-' + stamp) / 'Codex Pulse.app'
     backup.parent.mkdir(parents=True, exist_ok=True)
@@ -101,6 +105,7 @@ def install(app):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app', type=Path, default=ROOT / 'build/Codex Pulse.app')
+    parser.add_argument('--allow-signing-change', action='store_true', help='Explicit identity migration; may require privacy authorization again')
     parser.add_argument('--repair-widget', action='store_true', help='Refresh only the installed Widget registration without replacing the app')
     args = parser.parse_args()
     if args.repair_widget:
@@ -108,4 +113,4 @@ if __name__ == '__main__':
         refresh_widget_registration(args.app)
         print('已刷新 Codex Pulse 小组件注册；macOS 将重新加载时间线。')
     else:
-        install(args.app)
+        install(args.app, allow_signing_change=args.allow_signing_change)

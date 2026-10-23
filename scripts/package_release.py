@@ -11,6 +11,13 @@ import subprocess
 import tarfile
 import urllib.request
 
+try:
+    from .input_continuity import read_signature
+    from .signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
+except ImportError:
+    from input_continuity import read_signature
+    from signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '2.1.3'
 RUNTIMES = {
@@ -43,6 +50,8 @@ def sha256(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--identity', help='Use an existing signing identity; defaults to the fixed local certificate')
+    parser.add_argument('--allow-signing-change', action='store_true', help='Explicit signing identity migration')
     parser.add_argument('--app', type=Path, default=ROOT / 'build/Codex Pulse.app')
     parser.add_argument('--widget', type=Path, help='Optional freshly built extension to replace the source build extension')
     parser.add_argument('--downloads', type=Path, default=ROOT / 'build/release/downloads')
@@ -56,6 +65,10 @@ def main():
     if source_info['CFBundleShortVersionString'] != VERSION:
         raise SystemExit('Build version does not match this release recipe.')
     run('codesign', '--verify', '--deep', '--strict', args.app)
+    source_signature = read_signature(args.app)
+    profile = load_profile()
+    identity = select_signing_identity(args.identity, available=available_identities(), profile=profile,
+                                       installed=source_signature, allow_change=args.allow_signing_change)
     args.downloads.mkdir(parents=True, exist_ok=True)
     for name, spec in RUNTIMES.items():
         archive = args.downloads / f'{name}.tar.gz'
@@ -112,7 +125,7 @@ def main():
     info = {**source_info, 'PulsePython': 'runtime/python/bin/python3', 'PulseNode': 'runtime/node/bin/node'}
     (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     manifest = {'version': VERSION, 'architecture': 'arm64', 'minimum_macos': '14.0',
-                'signing': 'ad-hoc', 'notarized': False, 'runtimes': RUNTIMES}
+                'signing': 'ad-hoc' if identity['sha1'] == '-' else 'certificate-backed', 'notarized': False, 'runtimes': RUNTIMES}
     (resources / 'release-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     # Sign each actual Mach-O once, then the nested extension, then the outer app.
     magic = {b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca'}
@@ -121,10 +134,15 @@ def main():
             with path.open('rb') as stream:
                 macho = stream.read(4) in magic
             if macho:
-                run('codesign', '--force', '--sign', '-', path)
-    run('codesign', '--force', '--sign', '-', extension)
-    run('codesign', '--force', '--sign', '-', app)
+                run('codesign', '--force', '--sign', identity['sha1'], path)
+    run('codesign', '--force', '--sign', identity['sha1'], '--preserve-metadata=entitlements', extension)
+    run('codesign', '--force', '--sign', identity['sha1'], app)
     run('codesign', '--verify', '--deep', '--strict', app)
+    ensure_compatible(app, profile, allow_change=args.allow_signing_change)
+    ensure_compatible(app, source_signature, allow_change=args.allow_signing_change)
+    pin_identity(identity, read_signature(app))
+    signing_label = 'Ad-hoc signed' if identity['sha1'] == '-' else 'Certificate signed'
+    signing_label_zh = 'ad-hoc 签名' if identity['sha1'] == '-' else '证书签名'
     env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}
     env.pop('PYTHONHOME', None)
     env.pop('PYTHONPATH', None)
@@ -137,11 +155,11 @@ def main():
         'Codex Pulse 2.1.3 — Apple Silicon / macOS 14+\n\n'
         'Drag Codex Pulse.app to Applications. Python and Node.js are included.\n'
         'Install and sign in to Codex separately. G HUB is optional for keyboard lighting.\n'
-        'Ad-hoc signed; NOT Apple-notarized. Read the first-launch instructions:\n'
+        f'{signing_label}; NOT Apple-notarized. Read the first-launch instructions:\n'
         'https://github.com/QiushanHuang/Codex-Pulse#english\n\n'
         '将应用拖入 Applications。包内已包含 Python 和 Node.js。\n'
         '需另行安装并登录 Codex；键盘联动才需要 G HUB。\n'
-        '当前为 ad-hoc 签名，未公证，首次打开说明见：\n'
+        f'当前为{signing_label_zh}，未公证，首次打开说明见：\n'
         'https://github.com/QiushanHuang/Codex-Pulse#中文\n')
     stem = f'Codex-Pulse-v{VERSION}-macos-arm64'
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, args.output / f'{stem}.zip')

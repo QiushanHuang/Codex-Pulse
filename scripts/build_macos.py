@@ -9,8 +9,10 @@ import sys
 import time
 try:
     from .input_continuity import read_signature, write_json, build_report
+    from .signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
 except ImportError:
     from input_continuity import read_signature, write_json, build_report
+    from signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_SOURCES = ['UsageTimelineModel', 'UsageTimeline', 'TaskAlertPolicy', 'SnapshotObserver', 'TaskNotifications', 'QuotaNotificationSettings', 'QuotaResetViews', 'UsageAnalytics', 'ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
@@ -47,7 +49,8 @@ def run(*args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--identity', default='-', help='Optional existing Apple signing identity; default: local ad hoc')
+    parser.add_argument('--identity', help='Existing signing identity; auto uses a pinned local certificate, or pins a single available Apple identity')
+    parser.add_argument('--allow-signing-change', action='store_true', help='Explicit identity migration; may require privacy authorization again')
     parser.add_argument('--register', action='store_true', help='Register the built app and its widget locally')
     parser.add_argument('--reuse-widget', action='store_true', help='Reuse an existing built widget when only the app changes')
     parser.add_argument('--sdk', help='Optional installed macOS SDK path for the app compiler')
@@ -56,6 +59,11 @@ def main():
     args = parser.parse_args()
     installed = Path('/Applications/Codex Pulse.app')
     previous = read_signature(installed)
+    profile = load_profile()
+    identity = select_signing_identity(args.identity, available=available_identities(), profile=profile,
+                                       installed=previous, allow_change=args.allow_signing_change)
+    args.identity = identity['sha1']
+    print('构建签名：'+identity['name'], flush=True)
     python = select_python()
     app = (Path(args.output).resolve() if args.output else ROOT / 'build') / 'Codex Pulse.app'
     extension = app / 'Contents/PlugIns/CodexPulseWidget.appex'
@@ -102,6 +110,8 @@ def main():
                             '-configuration','Release','CONFIGURATION_BUILD_DIR='+str(ROOT/'build/xcode'),
                             'CODE_SIGN_IDENTITY='+args.identity],stdout=log,stderr=subprocess.STDOUT,check=True)
         shutil.copytree(ROOT/'build/xcode/CodexPulseWidget.appex',extension,dirs_exist_ok=True)
+    # Reused extensions must use the same fixed signer as their updated host.
+    run('codesign','--force','--sign',args.identity,'--preserve-metadata=entitlements',extension)
     sdk = args.sdk or subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'], text=True).strip()
     target = subprocess.check_output(['uname','-m'],text=True).strip()+'-apple-macosx14.0'
     common_flags = ['xcrun','swiftc','-parse-as-library','-O','-sdk',sdk,'-target',target,
@@ -111,10 +121,14 @@ def main():
     run('codesign','--force','--sign',args.identity, app)
     run('codesign','--verify','--deep','--strict',app)
     report = build_report(app, installed, previous)
+    ensure_compatible(app, profile, allow_change=args.allow_signing_change)
+    ensure_compatible(app, previous, allow_change=args.allow_signing_change)
+    pin_identity(identity, report['signature'])
     write_json(ROOT/'build/input-build-report.json', report)
     print('签名连续性：'+report['continuity']+'；ListenEvent 授权须由安装后 app 实测。')
     if args.install:
-        run(python, ROOT/'scripts/install_macos.py', '--app', app)
+        flags = ['--allow-signing-change'] if args.allow_signing_change else []
+        run(python, ROOT/'scripts/install_macos.py', '--app', app, *flags)
     if args.register:
         if args.install:
             app = installed

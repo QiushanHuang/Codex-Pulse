@@ -16,14 +16,15 @@ open "build/Codex Pulse.app"
 ```
 
 The script compiles the SwiftUI app and a real WidgetKit extension, generates the
-lighting catalog/icon and ad-hoc signs the result. It does not install, launch,
+lighting catalog/icon and signs the result with the fixed local certificate when available. It does not install, launch,
 register login startup or change keyboard lighting unless an explicit optional action
 is selected. Quit an app running from `build/` before overwriting that build.
 
 | Option | Action |
 | --- | --- |
 | `--sdk /path/to/MacOSX.sdk` | Select the app compiler SDK |
-| `--identity 'Developer ID Application: …'` | Use an existing signing identity; this alone is not notarization |
+| `--identity 'Developer ID Application: …'` | Choose an existing signer once; successful certificate builds pin its identity locally |
+| `--allow-signing-change` | Explicit signer migration; may require privacy authorization again |
 | `--reuse-widget` | Reuse a previously built, verified extension; only for a compatible unchanged widget |
 | `--register` | Register the app/extension locally for discovery |
 | `--install` | Run the backup/install/launch verification flow; refuses a running installed app |
@@ -41,6 +42,26 @@ python3 scripts/build_macos.py --reuse-widget \
 ```
 
 Only use paths actually installed on your Mac. Intel source compilation is not verified.
+
+### Preserve input permission across updates
+
+Local builds use `~/Library/Application Support/CodexPulse/build-signing.json` to
+keep the same certificate identity. With no saved profile, a single available Apple
+Development or Developer ID identity is selected and pinned after signature verification.
+The profile contains public signer metadata, never a private key, and is not packaged
+or committed. Missing/expired pinned identities stop the build; they never silently
+fall back to ad-hoc signing. Build, installer and packager reject incompatible updates
+unless an identity migration is explicitly requested.
+
+The one-time switch from the old ad-hoc app to the certificate-backed app may require
+Input Monitoring authorization again. Subsequent compatible signatures preserve code
+identity even when the binary hash changes. Actual permission still comes from macOS;
+matching signatures are not proof that a live input listener is authorized. Never reset
+or edit TCC as part of routine updates. Fresh CI/development hosts without a certificate
+can still produce ad-hoc builds; those cannot retain privacy identity across changes.
+Apple Development is suitable for this local workflow; it is not Developer ID
+notarization or a promise of public distribution trust. See [Apple TN3127](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
 
 ## Offline checks
 
@@ -115,7 +136,7 @@ configurations, logs, recovery records, task screenshots or downloaded developme
 
 ## Signing and distribution limits
 
-The included recipe produces **ad-hoc signed, unnotarized** packages. It is not a
+The recipe preserves the selected local signing identity and produces **unnotarized** packages. On a host with no certificate or profile, it uses ad-hoc signing. The published 2.1.3 packages are ad-hoc signed. It is not a
 Developer ID release pipeline. A notarized distribution additionally needs authorized
 Developer ID credentials, appropriate nested signing/entitlements, Apple notarization
 and stapling; those steps were not performed for 2.1.3. Check Gatekeeper behavior and
@@ -135,9 +156,13 @@ No updater or automatic telemetry service is included.
 源码需要 macOS 14+、已接受许可的完整 Xcode、Python 3.9+（含 sqlite3/ssl）、Node.js 22+。
 应用无需 pip/npm 安装。运行`python3 scripts/build_macos.py`，产物为`build/Codex Pulse.app`。
 构建包括真正的 WidgetKit 扩展、目录数据、图标和签名；默认不安装、不启动、不更改灯光。
+本机已有固定签名配置时沿用该证书；首次发现唯一可用的 Apple 证书会在验证后固定。
+配置保存于应用数据目录的 `build-signing.json`，仅含公开身份信息，不含私钥、不上传 GitHub。
+固定证书不可用时停止构建，不自动改回临时签名。构建、安装和打包均检查更新身份兼容性。
+从旧 ad-hoc 版切换到固定证书版可能需要最后确认一次输入监控；之后正常更新沿用同一身份。
 如果正在运行 build 中的版本，先退出再重建。
 
-`--sdk`指定 SDK；`--identity`使用现有证书，但不自动公证；`--reuse-widget`仅适合兼容且
+`--sdk`指定 SDK；`--identity`首次选择现有证书，但不自动公证；`--allow-signing-change`仅用于明确迁移身份，可能再次要求授权；`--reuse-widget`仅适合兼容且
 未变更的已有扩展；`--register`进行本机注册；`--install`执行备份、安装和启动验证。
 
 完整离线检查：
@@ -174,6 +199,7 @@ Intel 源码编译尚未验证。
 
 ### 签名边界
 
-当前流程生成 **ad-hoc 签名、未公证**包。正式 Developer ID 公证发布另需证书、适当的
+打包流程保留选定的本机签名身份，仍然 **未公证**；没有证书／固定配置的全新构建机使用 ad-hoc。
+已发布 2.1.3 包为 ad-hoc 签名；本机 Apple Development 签名不等于 Developer ID 公证发布。正式 Developer ID 公证发布另需证书、适当的
 嵌套签名/权限、Apple notarization 和 stapling；2.1.3 没有执行这些步骤。
 因此不能声称首次打开无提示或更新后永远无需重新授权。未提供自动更新或遥测服务。
