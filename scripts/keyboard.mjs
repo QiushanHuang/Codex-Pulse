@@ -179,7 +179,7 @@ export function lightingState(snapshot,now){
   const remaining=windows.length?Math.min(...windows.map(w=>w.remaining)):null;
   const dataFresh=now-(snapshot.generatedAt??now)<30;
   const fresh=Boolean(snapshot.quotaAt&&now-snapshot.quotaAt<180&&dataFresh&&!snapshot.quotaError&&remaining!==null);
-  const activeCount=dataFresh&&!snapshot.taskError?(snapshot.tasks??[]).filter(t=>t.status==='active').length:0;
+  const activeCount=dataFresh&&!snapshot.taskError?(snapshot.tasks??[]).filter(t=>t.status==='active'||t.isRunning===true).length:0;
   const active=activeCount>0;
   const events=(snapshot.events??[]).filter(e=>now-e.at>=0&&now-e.at<8&&PRIORITY[e.kind]);
   const event=events.sort((a,b)=>PRIORITY[b.kind]-PRIORITY[a.kind]||b.at-a.at)[0];

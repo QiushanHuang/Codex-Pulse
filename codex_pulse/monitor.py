@@ -1,5 +1,6 @@
 """Sampling daemon and local history. Run with python3 -m codex_pulse.monitor."""
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -15,6 +16,48 @@ import time
 from .codex import AppServer, LocalTasks
 from .core import normalize, normalize_credits, normalize_reset_vouchers, normalize_account_usage, apply_account_usage, change_kind, burn_rate
 from .monitor_lock import acquire_monitor_lock, MonitorAlreadyRunning, MonitorParentExited
+from .attention import overlay
+from .file_wake import FileWake
+from .remote_notifications import RemoteNotifications, read_json, status as remote_status
+
+
+def quota_interval(tasks):
+    return 15 if any(t.get('status') == 'active' or t.get('isRunning') for t in tasks) else 120
+
+
+def merge_quota_push(previous, update):
+    merged = copy.deepcopy(previous)
+    buckets = merged.setdefault('rateLimitsByLimitId', {})
+    updates = dict(update.get('rateLimitsByLimitId') or {})
+    legacy = update.get('rateLimits')
+    if isinstance(legacy, dict):
+        updates.setdefault(legacy.get('limitId') or 'codex', legacy)
+    for key, bucket in updates.items():
+        if isinstance(bucket, dict):
+            buckets[key] = {**buckets.get(key, {}), **bucket}
+    if legacy is not None:
+        merged['rateLimits'] = legacy
+    if 'rateLimitResetCredits' in update:
+        merged['rateLimitResetCredits'] = update['rateLimitResetCredits']
+    return merged
+
+
+def task_events(previous, tasks, now):
+    startup = previous is None
+    previous = previous or {}
+    events = []
+    for task in tasks:
+        old = previous.get(task['id'])
+        identity = (task['status'], task.get('turnId'), task.get('attentionId'))
+        prior = (old['status'], old.get('turnId'), old.get('attentionId')) if old else None
+        waiting = task['status'] in ('waiting_approval', 'waiting_input')
+        if startup and not waiting:
+            continue
+        if identity != prior and task['status'] in {'completed', 'failed', 'interrupted', 'waiting_approval', 'waiting_input'} and 0 <= now-task['at'] < (86400 if waiting else 120):
+            key = hashlib.sha256(repr((task['id'], identity, task['at'])).encode()).hexdigest()
+            events.append({'id': key, 'kind': task['status'], 'at': now if waiting else task['at'], 'message': task['title'],
+                           'taskId': task['id'], 'turnId': task.get('turnId')})
+    return events
 
 
 class History:
@@ -84,12 +127,29 @@ def run(args):
     config_path = directory / 'config.json'
     if not config_path.exists():
         atomic(config_path, {'lighting': False})
-    stop, inbox = threading.Event(), queue.Queue()
+    stop, inbox, wake = threading.Event(), queue.Queue(), threading.Event()
     refresh_quota = threading.Event()
+    def stopped(*_):
+        stop.set()
+        wake.set()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(sig, lambda *_: stop.set())
+        signal.signal(sig, stopped)
     server = AppServer(args.codex)
+    def notification(value):
+        if value['method'] == 'account/rateLimits/updated':
+            inbox.put(('quota_push', value['params'], time.time()))
+        else:
+            inbox.put(('account_changed', None, time.time()))
+            refresh_quota.set()
+        wake.set()
+    server.on_notification = notification
     history = History(directory / 'history.sqlite')
+    try:
+        remote = RemoteNotifications(directory)
+        remote.start_worker(stop)
+    except Exception:
+        remote = None
+        remote_status(directory, 'failed', '通知队列暂不可用，额度监控继续运行。', time.time())
     task_reader = LocalTasks()
     snapshot = {'version': 1, 'generatedAt': time.time(), 'quotaAt': 0, 'windows': [], 'tasks': [],
                 'events': [], 'quotaError': '正在读取额度', 'taskError': None, 'resetCredits': None, 'credits': None,
@@ -103,7 +163,9 @@ def run(args):
 
     def sample_quota():
         usage_account, next_usage = None, 0
+        failures = 0
         while not stop.is_set():
+            refresh_quota.clear()
             try:
                 if server.process is None or server.process.poll() is not None:
                     server.start()
@@ -111,6 +173,8 @@ def run(args):
                 raw = server.call('account/rateLimits/read')
                 raw['accountId'] = raw.get('accountId') or account.get('email') or f'unidentified-{os.getpid()}'
                 inbox.put(('quota', raw, time.time()))
+                wake.set()
+                failures = 0
                 account_key = hashlib.sha256(str(raw['accountId']).encode()).hexdigest()
                 if usage_account != account_key or time.monotonic() >= next_usage:
                     # Optional analytics failure must not fail a successful quota read.
@@ -121,14 +185,17 @@ def run(args):
                         observation['error'] = f'每日用量暂不可用 · {type(error).__name__}'
                     inbox.put(('usage', observation, time.time()))
                     usage_account, next_usage = account_key, time.monotonic() + 300
+                    wake.set()
             except Exception as error:
                 inbox.put(('error', f'额度暂不可用 · {type(error).__name__}', time.time()))
                 server.close()
+                failures += 1
+                wake.set()
             if args.once:
                 return
-            if refresh_quota.wait(60):
-                next_usage = 0
-            refresh_quota.clear()
+            # Account analytics stay at five minutes, including activity-triggered quota reads.
+            delay = min(300, 60 * 2**min(failures-1, 3)) if failures else quota_interval(snapshot['tasks'])
+            refresh_quota.wait(delay)
 
     sampler = threading.Thread(target=sample_quota, daemon=True)
     sampler.start()
@@ -139,11 +206,16 @@ def run(args):
             keyboard = subprocess.Popen([node, str(Path(__file__).resolve().parent.parent / 'scripts' / 'keyboard.mjs'),
                                          'run', str(directory)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     previous_tasks = None
+    watcher = FileWake(wake)
+    next_quota_trigger = 0
+    last_quota = None
     refresh_requested = time.time()
     quota_seen = False
     deadline = time.monotonic()+65
     try:
         while not stop.is_set():
+            wake.clear()
+            approval_deadlines = []
             if args.parent and os.getppid() != args.parent:
                 break
             request = load(directory / 'quota-refresh-request.json', {})
@@ -152,14 +224,17 @@ def run(args):
                 refresh_requested = requested_at
                 refresh_quota.set()
             try:
-                tasks = task_reader.read()
-                if previous_tasks is not None:
-                    for task in tasks:
-                        old = previous_tasks.get(task['id'])
-                        if old and task['status'] in {'completed', 'failed', 'interrupted'} and \
-                           (old['status'], old['turnId']) != (task['status'], task['turnId']) and \
-                           time.time()-task['at'] < 120:
-                            snapshot['events'].append({'kind': task['status'], 'at': task['at'], 'message': task['title']})
+                tasks = overlay(directory, task_reader.read(), time.time(), approval_deadlines)
+                watcher.set_paths(task_reader.watched_paths | {directory / 'task-attention.json', directory / 'quota-refresh-request.json'})
+                events = task_events(previous_tasks, tasks, time.time())
+                snapshot['events'].extend(events)
+                activity_changed = previous_tasks is not None and any(
+                    t['id'] not in previous_tasks or
+                    (t['status'], t.get('turnId')) != (previous_tasks[t['id']]['status'], previous_tasks[t['id']].get('turnId'))
+                    for t in tasks)
+                if activity_changed and time.monotonic() >= next_quota_trigger:
+                    refresh_quota.set()
+                    next_quota_trigger = time.monotonic() + 5
                 previous_tasks = {t['id']: t for t in tasks}
                 snapshot['tasks'] = tasks
                 snapshot['taskError'] = None
@@ -175,6 +250,7 @@ def run(args):
                 got_quota = kind in ('quota', 'error') or got_quota
                 quota_seen = quota_seen or got_quota
                 if kind == 'quota':
+                    last_quota = value
                     result = history.observe(value, at)
                     if snapshot.get('accountKey') not in (None, result['accountKey']):
                         snapshot['events'] = []
@@ -183,12 +259,37 @@ def run(args):
                     snapshot['events'].extend(result['newEvents'])
                     snapshot['quotaAt'] = at
                     snapshot['quotaError'] = None if snapshot['windows'] else '服务未提供额度窗口'
+                    preferences = read_json(config_path).get('quotaNotificationSettings', {})
+                    if remote is not None and isinstance(preferences, dict):
+                        receipt = read_json(directory / f"quota-reset-{snapshot['accountKey']}.json")
+                        try:
+                            remote.observe(snapshot, preferences, time.time(), receipt)
+                        except Exception:
+                            # Optional remote delivery must not invalidate a successful quota read.
+                            remote_status(directory, 'failed', '无法记录重置通知，请重新启动监控。', at)
                 elif kind == 'usage':
                     apply_account_usage(snapshot, value, at)
+                elif kind == 'quota_push':
+                    if last_quota:
+                        last_quota = merge_quota_push(last_quota, value)
+                        result = history.observe(last_quota, at)
+                        snapshot.update({k: v for k, v in result.items() if k != 'newEvents'})
+                        snapshot['events'].extend(result['newEvents'])
+                    # Only full reads establish freshness for all windows.
+                elif kind == 'account_changed':
+                    last_quota = None
+                    if remote is not None:
+                        remote.invalidate()
+                    snapshot.update(quotaError='账号状态变化，正在重新读取', usage=None, usageAt=0,
+                                    usageError='正在读取当前账号用量')
                 else:
                     snapshot['quotaError'] = value
+                    if remote is not None:
+                        remote.invalidate()
             now = time.time()
             snapshot['generatedAt'] = now
+            snapshot['refreshPolicy'] = {'quotaSeconds': quota_interval(snapshot['tasks']),
+                                         'tasks': 'filesystem' if watcher.queue else 'polling'}
             snapshot['events'] = [e for e in snapshot['events'] if now-e['at'] < 86400][-20:]
             snapshot['keyboard'] = load(directory / 'keyboard.json', {'status': 'off', 'message': '灯光未启动'})
             if keyboard and keyboard.poll() is not None:
@@ -199,10 +300,19 @@ def run(args):
                 if snapshot['quotaError']:
                     raise SystemExit(1)
                 break
-            stop.wait(1 if args.once else 5)
+            if args.once:
+                stop.wait(1)
+            else:
+                # At most one rescan per second during token streaming; idle wakeups are sparse.
+                stop.wait(1)
+                wait_seconds = 14 if watcher.queue else 4
+                if approval_deadlines:
+                    wait_seconds = min(wait_seconds, max(0, min(approval_deadlines)-time.time()))
+                wake.wait(wait_seconds)
     finally:
         stop.set()
         refresh_quota.set()
+        watcher.close()
         if keyboard and keyboard.poll() is None:
             keyboard.terminate()
             try:

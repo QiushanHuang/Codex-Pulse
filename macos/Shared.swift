@@ -22,11 +22,12 @@ struct PulseTask: Codable, Identifiable {
     var inputTokens: Int? = nil
     var outputTokens: Int? = nil
     var cachedInputTokens: Int? = nil
+    var isRunning: Bool? = nil
     var comparableTokens:Int? {tokensUsed.flatMap{$0>=0 ? $0:nil}}
     var tokenLabel: String { comparableTokens.map { PulseUsageFormat.compact(Double($0)) + " tokens" } ?? "— tokens" }
     var usageSummary: String { tokenLabel + " · Credit 未提供" }
-    var label: String { ["active":"运行中", "completed":"轮次结束", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
-    var color: Color { status == "active" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : .secondary }
+    var label: String { ["active":"运行中", "completed":"轮次结束", "waiting_approval":"等待授权", "waiting_input":"等待回答", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
+    var color: Color { status == "active" || status == "waiting_input" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : status == "waiting_approval" ? .orange:.secondary }
 }
 enum PulseUsageFormat {
     static func compact(_ value: Double) -> String {
@@ -67,7 +68,11 @@ enum QuotaResetPolicy {
         return result?.pendingID(for:accountKey) != nil || (fresh && (count ?? 0)>0)
     }
 }
-struct PulseEvent: Codable { let kind: String; let at: Double; let message: String }
+struct PulseEvent: Codable {
+    let kind: String; let at: Double; let message: String
+    var id:String? = nil
+    var taskId:String? = nil
+}
 struct KeyboardState: Codable { let status: String; let message: String }
 struct PulseSnapshot: Codable {
     var generatedAt: Double; var quotaAt: Double; var windows: [QuotaWindow]; var tasks: [PulseTask]
@@ -89,7 +94,7 @@ struct PulseSnapshot: Codable {
     var mainWindows: [QuotaWindow] { windows.filter { $0.bucket == "codex" } }
     var primary: QuotaWindow? { mainWindows.min { $0.remaining < $1.remaining } }
     var stale: Bool { Date().timeIntervalSince1970 - quotaAt > 180 || Date().timeIntervalSince1970 - generatedAt > 30 || quotaError != nil }
-    var activeCount: Int { tasks.filter { $0.status == "active" }.count }
+    var activeCount: Int { tasks.filter { $0.status == "active" || $0.isRunning == true }.count }
     var completedToday: Int { tasks.filter { $0.status == "completed" && Calendar.current.isDateInToday(Date(timeIntervalSince1970: $0.at)) }.count }
 }
 
@@ -209,7 +214,8 @@ struct QuotaRing: View {
                     .foregroundStyle(stale ? Color.secondary:centerColor).lineLimit(1).minimumScaleFactor(0.5)
                 if size>=60 {Text(centerUnit).font(.system(size:max(8,size*0.095))).foregroundStyle(centerColor)}
                 if size>=52 {Text(center == .percentage ? balance+" cr":percent+"%")
-                    .font(.system(size:max(8,size*0.115),weight:.medium)).foregroundStyle(stale ? Color.secondary:(center == .credit ? outerColor:innerColor))}
+                    .font(.system(size:max(8,size*0.115),weight:.medium)).foregroundStyle(stale ? Color.secondary:(center == .credit ? outerColor:innerColor))
+                    .lineLimit(1).minimumScaleFactor(0.5)}
             }.frame(width:size*0.56)
         }.padding(width/2).frame(width:size,height:size)
             .accessibilityElement(children:.ignore)

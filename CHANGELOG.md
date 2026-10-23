@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — event sounds (2026-10-23)
+
+- Choose from 14 macOS sounds or Silent independently for completion, questions,
+  approvals, failures, interruptions and confirmed quota resets. Preview each choice,
+  keep selections across restarts and prioritize actionable events in a burst.
+- 为完成、问答、审批、失败、中断及已确认额度重置分别选择 14 种音效或静音，
+  支持逐项试听与保存；同批事件优先播放需要处理的提醒，保留声音总开关。
+
 ## Unreleased — usage analytics and customizable desktop panels (2026-09-30)
 
 ### English

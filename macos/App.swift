@@ -59,6 +59,11 @@ final class PulseModel: ObservableObject {
     @Published var previewScene:String?
     @Published var preferences=LightPreferences()
     @Published var menuBarPreferences=MenuBarPreferences()
+    @Published var notificationPreferences=NotificationPreferences()
+    @Published var quotaNotificationPreferences=QuotaNotificationPreferences()
+    @Published var hookConnectionBusy=false
+    @Published var hookNotice:String?
+    private var hookChild:Process?
     @Published var error:String?
     @Published var configurationNotice:String?
     @Published var settingsCategory:SettingsCategory = .general
@@ -72,6 +77,8 @@ final class PulseModel: ObservableObject {
     private(set) var statusBar:PulseStatusBar?
     private(set) var sidebar:SidebarController?
     private(set) var stickyExpansion:StickyExpansionController?
+    private(set) var reminders:TaskNotificationController?
+    private var snapshotObserver:SnapshotObserver?
     private var child:Process?
     private var timer:Timer?
     private var lastReload=Date.distantPast
@@ -96,22 +103,29 @@ final class PulseModel: ObservableObject {
             applyConfig(lastConfig)
         } catch {configurationNotice=error.localizedDescription}
         if startMonitoring {
-            timer=Timer.scheduledTimer(withTimeInterval:5,repeats:true){[weak self] _ in Task{@MainActor in self?.refresh()}}
+            timer=Timer.scheduledTimer(withTimeInterval:15,repeats:true){[weak self] _ in Task{@MainActor in self?.refresh();self?.reminders?.refreshAuthorization()}}
             timer?.tolerance=1
             start()
         }
         statusBar=PulseStatusBar(model:self)
         sidebar=SidebarController(model:self)
         stickyExpansion=StickyExpansionController(model:self)
+        reminders=TaskNotificationController(enabled:startMonitoring,openTask:{[weak self] id in self?.openTaskID(id)})
+        reminders?.configure(notificationPreferences)
+        if startMonitoring {snapshotObserver=SnapshotObserver(directory:PulsePaths.data){[weak self] in self?.refresh()}}
         refresh()
     }
     private func applyConfig(_ config:[String:Any]) {
         lighting=config["lighting"] as? Bool ?? false
         if settingsSave==nil {preferences=LightPreferences(config["lightSettings"] as? [String:Any] ?? [:])}
         menuBarPreferences=MenuBarPreferences(config["menuBarSettings"] as? [String:Any] ?? [:])
+        notificationPreferences=NotificationPreferences(config["notificationSettings"] as? [String:Any] ?? [:])
+        quotaNotificationPreferences=QuotaNotificationPreferences(config["quotaNotificationSettings"] as? [String:Any] ?? [:])
+        reminders?.configure(notificationPreferences)
         selectedDeviceKey=config["selectedDeviceKey"] as? String
         stickyPinned=(config["windowSettings"] as? [String:Any])?["stickyPinned"] as? Bool ?? false
         desktopPreferences=DesktopPreferences(config["windowSettings"] as? [String:Any] ?? [:])
+        reminders?.sidebarPreferences=desktopPreferences
         let next=PulseAppearance(rawValue:config["appearance"] as? String ?? "") ?? .system
         appearance=next
         NSApp.appearance=next == .system ? nil:NSAppearance(named:next == .dark ? .darkAqua:.aqua)
@@ -131,6 +145,7 @@ final class PulseModel: ObservableObject {
         snapshot = .read();running=monitoringRequested && (child?.isRunning ?? false)
         readResetReceipt()
         let config=readConfig();applyConfig(config)
+        reminders?.consume(snapshot,running:running)
         if let data=try? Data(contentsOf:PulsePaths.data.appendingPathComponent("devices.json")),let inventory=try? JSONDecoder().decode(DeviceInventory.self,from:data) {deviceInventory=inventory}
         statusBar?.update()
         if monitoringAllowed {AmbientInput.shared.configure(inputRequested)}
@@ -219,6 +234,40 @@ final class PulseModel: ObservableObject {
         guard let url=WorkbenchTasks.taskURL(for:task),NSWorkspace.shared.urlForApplication(toOpen:url) != nil else {error="未找到可打开该任务的 Codex 应用。";return}
         if !NSWorkspace.shared.open(url) {error="无法打开 Codex 任务，请检查 Codex 是否已安装。"}
     }
+    func openTaskID(_ id:String) {
+        openTask(snapshot.tasks.first{$0.id==id} ?? PulseTask(id:id,title:"任务",status:"unknown",at:0))
+    }
+    func saveNotificationPreferences(_ changes:[String:Any]) {
+        if updateConfig({config in
+            var values=config["notificationSettings"] as? [String:Any] ?? [:]
+            changes.forEach{values[$0.key]=$0.value};config["notificationSettings"]=values
+        }) {applyConfig(lastConfig)}
+    }
+    @discardableResult func saveQuotaNotificationSettings(_ values:[String:Any])->Bool {
+        let saved=updateConfig {$0["quotaNotificationSettings"]=values}
+        if saved {applyConfig(lastConfig)}
+        return saved
+    }
+    func connectTaskSignals() {
+        guard monitoringAllowed,!hookConnectionBusy,let resources=Bundle.main.resourceURL,
+              let python=Bundle.main.infoDictionary?["PulsePython"] as? String else{return}
+        let child=Process(),output=Pipe()
+        child.executableURL=PulseRuntimePaths.resolve(python,resources:resources)
+        child.currentDirectoryURL=resources.appendingPathComponent("backend")
+        child.arguments=["-B","-m","codex_pulse.attention","--configure","--confirmed","--data-dir",PulsePaths.data.path]
+        child.standardOutput=output;child.standardError=FileHandle.nullDevice
+        child.terminationHandler={[weak self] process in
+            let data=output.fileHandleForReading.readDataToEndOfFile()
+            let result=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]
+            let configured=process.terminationStatus==0 && result?["configured"] as? Bool == true
+            Task{@MainActor in
+                self?.hookConnectionBusy=false;self?.hookChild=nil
+                self?.hookNotice=configured ? "已添加提醒连接。请在 Codex 的 Hooks 中审阅并信任，再开始新轮次。":"连接未完成，请检查 Codex 的 hooks.json 配置。"
+            }
+        }
+        do {hookConnectionBusy=true;hookChild=child;try child.run()}
+        catch {hookConnectionBusy=false;hookChild=nil;hookNotice="无法启动提醒连接。"}
+    }
     func saveLighting(_ enabled:Bool) {
         guard !enabled || (deviceReady && selectedDeviceKey != nil) else {route = .devices;error="请先选择已连接且支持的键盘。";return}
         guard flushSettings() else{return}
@@ -293,7 +342,7 @@ final class PulseModel: ObservableObject {
         do { try process.run();child=process;monitoringRequested=true;running=true;error=nil }
         catch { self.error = "后台启动失败：\(error.localizedDescription)" }
     }
-    func stop(){monitoringRequested=false;running=false;AmbientInput.shared.configure(false);flushSettings();stopPreview();child?.terminate()}
+    func stop(){monitoringRequested=false;running=false;reminders?.dismissAll();AmbientInput.shared.configure(false);flushSettings();stopPreview();child?.terminate()}
     func quit(){stop();NSApp.terminate(nil)}
 }
 
@@ -383,6 +432,7 @@ final class PulseStatusBar: NSObject {
         let status=NSMenuItem(title:quota.summary,action:nil,keyEquivalent:"");status.isEnabled=false;menu.addItem(status)
         menu.addItem(.separator())
         add("打开 Tibo 的推特（X）",#selector(openTibo))
+        add("OpenAI 服务状态",#selector(openOpenAIStatus))
         add("设置…",#selector(showSettings))
         add(model.lighting ? "关闭键盘状态灯":"开启键盘状态灯",#selector(toggleLighting))
         menu.addItem(.separator())
@@ -402,6 +452,11 @@ final class PulseStatusBar: NSObject {
         if !NSWorkspace.shared.open(URL(string:"https://x.com/thsottiaux")!) {
             model?.error="无法打开浏览器，请检查默认浏览器设置"
             openWindow?("dashboard")
+        }
+    }
+    @objc private func openOpenAIStatus() {
+        if !NSWorkspace.shared.open(URL(string:"https://status.openai.com")!) {
+            model?.error="无法打开浏览器，请检查默认浏览器设置";openWindow?("dashboard")
         }
     }
     @objc private func toggleLighting() { if let model { model.saveLighting(!model.lighting) } }
@@ -525,7 +580,10 @@ struct PulseSettings: View {
                 Spacer()
                 Button(model.running ? "暂停监控":"启动监控") { model.running ? model.stop():model.start() }
             }
-            Text("每 60 秒读取额度，每 5 秒更新本机任务。关闭窗口后继续运行，退出 App 后停止。").font(.caption).foregroundStyle(.secondary)
+            Text("运行任务时每 15 秒读取额度，空闲时每 120 秒读取；任务开始、结束与手动刷新会触发补读。本机任务与界面随文件变化更新。关闭窗口后继续运行，退出 App 后停止。").font(.caption).foregroundStyle(.secondary)
+            if let reminders=model.reminders {Divider();TaskReminderSettings(model:model,reminders:reminders)}
+            Divider()
+            QuotaNotificationSettings(model:model)
         }
     }
     private var diagnosticSettings:some View {

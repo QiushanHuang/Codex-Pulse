@@ -8,6 +8,9 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/swift-tests'
 SUITES = {
+    'TaskSound': ['TaskAlertPolicy'],
+    'WidgetTaskState': ['WidgetShared'],
+    'TaskNotification': ['TaskAlertPolicy'],
     'ApplicationLifecycle': ['ApplicationLifecycle'],
     'RuntimePaths': ['RuntimePaths'],
     'AmbientCatalog': ['AmbientCatalog'],
@@ -22,6 +25,7 @@ SUITES = {
     'StickyPresentation': ['Shared', 'StickyPresentation'],
     'StickyWindow': ['Shared', 'StickyWindowSupport', 'PulseConfiguration'],
     'UsagePresentation': ['Shared'],
+    'RingText': ['Shared'],
     'PeriodUsage': ['Shared'],
     'Trend': ['Shared'],
     'WindowPresentation': ['WindowPresentation'],

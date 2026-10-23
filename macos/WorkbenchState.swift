@@ -72,7 +72,7 @@ enum WorkbenchTasks {
             let matchesStatus: Bool
             switch filter {
             case .all: matchesStatus = true
-            case .active: matchesStatus = task.status == "active"
+            case .active: matchesStatus = task.status == "active" || task.isRunning == true
             case .attention: matchesStatus = task.status != "active" && task.status != "completed"
             case .completed: matchesStatus = task.status == "completed"
             }

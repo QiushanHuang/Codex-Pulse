@@ -142,6 +142,38 @@ def burn_rate(points):
     return round((segment[-1]['used'] - segment[0]['used']) * 3600 / elapsed, 2)
 
 
+def pending_questions(events):
+    """Only explicit tool-request lifecycle metadata; never inspect question prose."""
+    pending, turn = {}, None
+    for event in events:
+        kind = event.get('type')
+        if kind in ('task_started', 'turn_context'):
+            turn = event.get('turn_id') or turn
+        elif kind == 'question_requested':
+            pending[event['call_id']] = {**event, 'turn_id': event.get('turn_id') or turn}
+        elif kind == 'question_returned':
+            question = pending.get(event['call_id'])
+            if question and not question.get('async'):
+                pending.pop(event['call_id'])
+        elif kind == 'question_reply':
+            pending.clear()
+        elif kind in ('task_complete', 'turn_aborted', 'task_failed'):
+            ended = event.get('turn_id') or turn
+            pending = {key: q for key, q in pending.items()
+                       if q.get('turn_id') not in (None, ended)
+                       or (kind == 'task_complete' and q.get('async'))}
+    return list(pending.values())
+
+
+def compact_task_events(events):
+    anchors = [e for e in events if e['type'] in ('task_started', 'task_complete', 'task_failed', 'turn_aborted')][-1:]
+    replies = [e for e in events if e['type'] == 'question_reply'][-1:]
+    contexts = [e for e in events if e['type'] == 'turn_context'][-1:]
+    tail = [e for e in events if e['type'] != 'question_requested'][-128:]
+    retained = [e for e in anchors + replies + contexts if e not in tail] + tail + pending_questions(events)[-16:]
+    return sorted(retained, key=lambda e: e['at'])
+
+
 def task_state(events, now):
     result = {'status': 'unknown', 'at': 0, 'turnId': None}
     terminal = {'task_complete': 'completed', 'turn_aborted': 'interrupted', 'task_failed': 'failed'}
@@ -157,4 +189,16 @@ def task_state(events, now):
             result = {'status': 'active', 'at': event['at'], 'turnId': event['turn_id']}
     if result['status'] == 'active' and now - result['at'] > 1800:
         result['status'] = 'unknown'
+    replies = [e['at'] for e in events if e.get('type') == 'question_reply']
+    if replies:
+        result['lastUserInputAt'] = max(replies)
+    questions = [q for q in pending_questions(events) if 0 <= now-q['at'] < 86400]
+    if questions:
+        q = max(questions, key=lambda e: e['at'])
+        result = {**result, 'status': 'waiting_input', 'at': q['at'],
+                  'turnId': q.get('turn_id') or result['turnId'], 'attentionId': q['call_id'],
+                  'attentionSource': 'session', 'isRunning': bool(q.get('async') and result['status'] == 'active')}
+    contexts = [e for e in events if e.get('type') == 'turn_context' and e.get('turn_id') == result['turnId']]
+    if contexts and contexts[-1].get('approval_reviewer') in ('user', 'auto_review'):
+        result['approvalReviewer'] = contexts[-1]['approval_reviewer']
     return result

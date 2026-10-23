@@ -312,10 +312,41 @@ import SwiftUI
         model.saveDesktopSettings(["sidebarEnabled":false]);settle()
         precondition(sidebar.handlePanel==nil && sidebar.detailPanel==nil && !sidebar.interaction.expanded)
         sticky.orderOut(nil)
+        let startupReminders=TaskNotificationController(enabled:true,openTask:{_ in})
+        startupReminders.configure(NotificationPreferences(["systemEnabled":false]))
+        var waiting=DesktopFixture.snapshot
+        let waitingTask=PulseTask(id:"12345678-1234-1234-1234-123456789005",title:"启动提醒检查",status:"waiting_input",at:DesktopFixture.now,isRunning:true)
+        waiting.tasks=[waitingTask]
+        waiting.events=[PulseEvent(kind:"waiting_input",at:DesktopFixture.now,message:waitingTask.title,id:"startup-one",taskId:waitingTask.id)]
+        let countBefore=NSApp.windows.compactMap{$0 as? TaskAlertPanel}.filter(\.isVisible).count
+        startupReminders.consume(waiting,running:true)
+        precondition(NSApp.windows.compactMap{$0 as? TaskAlertPanel}.filter(\.isVisible).count==countBefore,"startup cards must wait for the SwiftUI graph update to finish")
+        var answered=waiting;answered.tasks=[];answered.events=[]
+        startupReminders.consume(answered,running:true);settle(0.3)
+        precondition(NSApp.windows.compactMap{$0 as? TaskAlertPanel}.filter(\.isVisible).count==countBefore,"a request resolved before presentation must not show a stale card")
+        waiting.events=[PulseEvent(kind:"waiting_input",at:DesktopFixture.now,message:waitingTask.title,id:"startup-two",taskId:waitingTask.id)]
+        startupReminders.consume(waiting,running:true);settle(0.3)
+        precondition(NSApp.windows.compactMap{$0 as? TaskAlertPanel}.filter(\.isVisible).count==countBefore+1,"an unresolved startup request must show a card")
+        startupReminders.dismissAll()
+        if let reminders=model.reminders {
+            for index in 0..<4 {
+                reminders.present(TaskAlert(id:"preview-\(index)",taskID:"preview-\(index)",kind:index==0 ? "completed":index==1 ? "waiting_approval":"waiting_input",at:DesktopFixture.now,title:"测试任务 \(index)"))
+            }
+            settle(0.3)
+            let panels=NSApp.windows.compactMap{$0 as? TaskAlertPanel}.filter(\.isVisible)
+            precondition(panels.count==3,"reminder cards must cap the visible stack")
+            precondition(panels.allSatisfy{!$0.canBecomeKey && !$0.canBecomeMain},"reminders must preserve the user's keyboard focus")
+            reminders.dismissAll()
+            precondition(panels.allSatisfy{!$0.isVisible},"dismissal must close every reminder panel")
+        }
         let destination=URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         try FileManager.default.createDirectory(at:destination,withIntermediateDirectories:true)
         for scheme in [ColorScheme.light,.dark] {
             let name=scheme == .dark ? "dark":"light"
+            for kind in ["completed","waiting_approval","waiting_input"] {
+                let alert=TaskAlert(id:kind,taskID:"preview",kind:kind,at:DesktopFixture.now,title:kind=="completed" ? "界面与快捷操作验证完成":"检查新版侧边栏与任务提醒，需要你的处理")
+                try render(TaskAlertCard(alert:alert,open:{},dismiss:{}),scheme:scheme,to:destination.appendingPathComponent("reminder-\(kind)-\(name).png"))
+            }
             try render(AccountUsageHistory(snapshot:DesktopFixture.snapshot).frame(width:680),scheme:scheme,to:destination.appendingPathComponent("daily-usage-\(name).png"))
             for center in RingCenterContent.allCases {
                 try render(QuotaRing(remaining:62,stale:false,size:96,credits:PulseCredits(balance:128.5,unlimited:false),resetCredits:2).environment(\.ringCenterContent,center),scheme:scheme,to:destination.appendingPathComponent("ring-center-\(center.rawValue)-\(name).png"))

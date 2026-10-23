@@ -17,8 +17,9 @@ struct QuotaWindow: Codable, Identifiable {
 }
 struct PulseTask: Codable, Identifiable {
     let id: String; let title: String; let status: String; let at: Double
-    var label: String { ["active":"运行中", "completed":"轮次结束", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
-    var color: Color { status == "active" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : .secondary }
+    var isRunning: Bool? = nil
+    var label: String { ["active":"运行中", "completed":"轮次结束", "waiting_input":"等待回答", "waiting_approval":"等待授权", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
+    var color: Color { status == "active" || status == "waiting_input" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : status == "waiting_approval" ? .orange:.secondary }
 }
 struct PulseEvent: Codable { let kind: String; let at: Double; let message: String }
 struct KeyboardState: Codable { let status: String; let message: String }
@@ -35,7 +36,7 @@ struct PulseSnapshot: Codable {
     var mainWindows: [QuotaWindow] { windows.filter { $0.bucket == "codex" } }
     var primary: QuotaWindow? { mainWindows.min { $0.remaining < $1.remaining } }
     var stale: Bool { Date().timeIntervalSince1970 - quotaAt > 180 || Date().timeIntervalSince1970 - generatedAt > 30 || quotaError != nil }
-    var activeCount: Int { tasks.filter { $0.status == "active" }.count }
+    var activeCount: Int { tasks.filter { $0.status == "active" || $0.isRunning == true }.count }
     var completedToday: Int { tasks.filter { $0.status == "completed" && Calendar.current.isDateInToday(Date(timeIntervalSince1970: $0.at)) }.count }
 }
 

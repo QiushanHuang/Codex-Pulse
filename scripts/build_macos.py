@@ -13,7 +13,7 @@ except ImportError:
     from input_continuity import read_signature, write_json, build_report
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_SOURCES = ['QuotaResetViews', 'UsageAnalytics', 'ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
+APP_SOURCES = ['TaskAlertPolicy', 'SnapshotObserver', 'TaskNotifications', 'QuotaNotificationSettings', 'QuotaResetViews', 'UsageAnalytics', 'ApplicationLifecycle', 'RuntimePaths', 'InputAuthorization', 'AmbientDesignPreview', 'InputMonitorState', 'AmbientCatalog', 'AmbientLighting', 'AmbientLibrary', 'MenuBar', 'LightingDiagram', 'WindowPresentation', 'StickyPresentation', 'DesktopPresentation', 'SidebarViews', 'SidebarController', 'DesktopSurfaceSettings', 'StickyWindowSupport', 'StickyExpansion', 'StickyDashboard', 'PresetPagination', 'PulseConfiguration', 'WorkbenchState', 'WorkbenchViews', 'App']
 
 
 def select_python(candidates=None):
@@ -51,12 +51,13 @@ def main():
     parser.add_argument('--register', action='store_true', help='Register the built app and its widget locally')
     parser.add_argument('--reuse-widget', action='store_true', help='Reuse an existing built widget when only the app changes')
     parser.add_argument('--sdk', help='Optional installed macOS SDK path for the app compiler')
+    parser.add_argument('--output', help='Build into a separate directory, preserving the previous candidate')
     parser.add_argument('--install', action='store_true', help='Back up and replace /Applications/Codex Pulse.app, then verify runtime input status')
     args = parser.parse_args()
     installed = Path('/Applications/Codex Pulse.app')
     previous = read_signature(installed)
     python = select_python()
-    app = ROOT / 'build/Codex Pulse.app'
+    app = (Path(args.output).resolve() if args.output else ROOT / 'build') / 'Codex Pulse.app'
     extension = app / 'Contents/PlugIns/CodexPulseWidget.appex'
     for bundle in (app, extension):
         (bundle / 'Contents/MacOS').mkdir(parents=True, exist_ok=True)
@@ -67,12 +68,16 @@ def main():
     baseline = resources / 'input-install-baseline.json'
     write_json(baseline, {'signature': previous, 'source': 'previous_install', 'at': time.time()} if previous else {})
     source_icon = ROOT / 'assets/branding/codex-pulse-logo-v3.png'
-    for size in (16, 32, 128, 256, 512):
-        for scale in (1, 2):
-            suffix = '@2x' if scale == 2 else ''
-            run('sips', '-z', size * scale, size * scale, source_icon,
-                '--out', iconset / f'icon_{size}x{size}{suffix}.png')
-    run('iconutil', '-c', 'icns', iconset, '-o', resources / 'CodexPulse-v3.icns')
+    previous_icon = ROOT / 'build/Codex Pulse.app/Contents/Resources/CodexPulse-v3.icns'
+    if args.output and previous_icon.exists():
+        shutil.copy2(previous_icon, resources / 'CodexPulse-v3.icns')
+    else:
+        for size in (16, 32, 128, 256, 512):
+            for scale in (1, 2):
+                suffix = '@2x' if scale == 2 else ''
+                run('sips', '-z', size * scale, size * scale, source_icon,
+                    '--out', iconset / f'icon_{size}x{size}{suffix}.png')
+        run('iconutil', '-c', 'icns', iconset, '-o', resources / 'CodexPulse-v3.icns')
     for directory in ('codex_pulse', 'scripts'):
         shutil.copytree(ROOT / directory, resources / 'backend' / directory, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -87,6 +92,8 @@ def main():
           'CFBundleURLTypes':[{'CFBundleURLName':'CodexPulse','CFBundleURLSchemes':['codexpulse']}]})
     # A real extension target supplies the NSExtensionMain entry point required by macOS.
     if args.reuse_widget:
+        if not (extension / 'Contents/Info.plist').exists() and args.output:
+            shutil.copytree(ROOT / 'build/Codex Pulse.app/Contents/PlugIns/CodexPulseWidget.appex', extension, dirs_exist_ok=True)
         run('codesign', '--verify', '--strict', extension)
     else:
         run(python, ROOT/'scripts/generate_xcode_project.py')

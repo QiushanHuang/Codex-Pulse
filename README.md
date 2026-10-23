@@ -119,7 +119,8 @@ The download is for Apple Silicon. Intel users can review the
 
 1. Open Codex and sign in, then launch **Codex Pulse**.
 2. Open **总览** (Overview) or **额度与趋势** (Quota & Trends). Quota is sampled every
-   60 seconds; task events are checked every 5 seconds.
+   15 seconds during active turns and 120 seconds while idle in the current source build;
+   local task changes wake the monitor immediately. The published 2.1.3 package uses the earlier 60/5-second cadence.
 3. Open **任务** (Tasks) to search, filter and return to a task in Codex.
 4. Choose **便签模式** (Sticky Mode), or press **⌘⇧M**. Pin the card with its pin button.
    Switch back to the workbench for details; monitoring continues as you change views.
@@ -130,6 +131,15 @@ The download is for Apple Silicon. Intel users can review the
    last dashboard or sticky view, including after closing its window. Quit stops monitoring.
 
 <p align="center"><img src="docs/images/sticky.png" width="360" alt="Compact sticky card with example quota, consumption rate and tasks"></p>
+
+The current source build adds **OpenAI Status** directly below Tibo in the menu.
+In **Settings → General → Task reminders**, enable system notifications and edge cards.
+Completion alerts work from local turn records; permission and question alerts require
+**Connect Codex permission and question reminders**, followed by Codex hook trust review.
+The connection backs up and merges `~/.codex/hooks.json`; it never grants permissions or answers questions.
+Choose a separate sound for completion, questions, approvals, failures, interruptions
+and quota resets: 14 macOS sounds plus Silent, with per-event preview and saved choices.
+Click an alert to open the task. See [reminder setup and limits](docs/task-reminders.md).
 
 Add Codex Pulse through macOS **Edit Widgets** for small, medium or large widgets.
 macOS schedules widget refreshes. Check the widget's update time, or open the app for
@@ -328,7 +338,7 @@ shasum -a 256 Codex-Pulse-v2.1.3-macos-arm64.dmg
 ### 快速开始
 
 1. 打开并登录 Codex，然后启动 **Codex Pulse**。
-2. 在 **总览** 或 **额度与趋势** 查看数据；额度每 60 秒采样，任务事件每 5 秒检查。
+2. 在 **总览** 或 **额度与趋势** 查看数据；当前源码在任务运行时每 15 秒、空闲时每 120 秒读取额度，本机任务随文件变化更新。已发布的 2.1.3 包仍使用原来的 60/5 秒间隔。
 3. 在 **任务** 搜索、筛选，点击相应入口回到 Codex。
 4. 选择 **便签模式** 或按 **⌘⇧M**，用图钉切换置顶。需要详情时切回工作台，
    切换视图期间监控继续运行。
@@ -343,6 +353,13 @@ shasum -a 256 Codex-Pulse-v2.1.3-macos-arm64.dmg
 在 macOS **编辑小组件** 中搜索 Codex Pulse，可添加小、中、大三种尺寸。
 macOS 会安排小组件的刷新时间；留意“更新于”时间，或打开应用查看最新采集的数据。
 需要开机启动时，在 **系统设置 → 通用 → 登录项** 中添加安装后的应用。
+
+**额度重置手机通知：** 在 **设置 → 通用 → 额度重置通知** 中选择 Bark 推送或 SMTP 邮件，可分别监测 5 小时、每周自然重置和使用重置券成功。也支持根据未到期券减少及额度提前恢复识别 Tibo 等外部入口的手动重置，数据不足时不猜测。包含保存、测试发送、发送记录与有限重试；推送地址和邮箱授权码存入 macOS 钥匙串。Mac 需联网且监控运行。配置方法见 [额度重置手机通知](docs/quota-mobile-notifications.md)。
+
+当前源码在菜单栏 Tibo 入口下增加 **OpenAI 服务状态**。在 **设置 → 通用 → 任务提醒** 开启系统通知或侧边卡片；
+轮次结束提醒直接读取本机记录，权限与问题提醒需点击连接按钮，并在 Codex 中审阅、信任 Hooks。
+完成、问答、审批、失败、中断、额度重置可分别选择 14 种音效或静音，逐项试听并自动保存。
+连接会备份并合并 `~/.codex/hooks.json`，不会替你授权或回答。点击提示进入任务；详见[提醒设置与范围](docs/task-reminders.md)。
 
 ### 连接键盘
 

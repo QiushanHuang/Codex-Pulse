@@ -9,6 +9,9 @@ struct WorkbenchStateTests {
         let interrupted = PulseTask(id: "d", title: "Run checks", status: "interrupted", at: 20)
         let unknown = PulseTask(id: "e", title: "Archived? No", status: "unknown", at: 15)
         let tasks = [ended, unknown, interrupted, active, failed]
+        let asyncQuestion=try JSONDecoder().decode(PulseTask.self,from:Data(#"{"id":"q","title":"Question","status":"waiting_input","at":20,"isRunning":true}"#.utf8))
+        precondition(WorkbenchTasks.filtered([asyncQuestion],filter:.active).count==1,"asynchronous questions do not stop the turn")
+        precondition(WorkbenchTasks.filtered([asyncQuestion],filter:.attention).count==1,"the same turn can also need an answer")
         precondition(WorkbenchTasks.filtered(tasks, query: "  fix  ").map(\.id) == [active.id, failed.id], "Search must trim whitespace and ignore case")
         precondition(WorkbenchTasks.filtered(tasks, query: "01A0").map(\.id) == [active.id], "Search includes stable task ID")
         precondition(WorkbenchTasks.filtered(tasks, filter: .attention).map(\.id) == [failed.id, interrupted.id, unknown.id], "Attention includes failure, interruption and unknown")
