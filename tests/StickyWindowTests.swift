@@ -8,7 +8,10 @@ import SwiftUI
   let dashboard=NSWindow(contentRect:NSRect(x:0,y:0,width:1024,height:700),styleMask:.titled,backing:.buffered,defer:false)
   let access=StickyWindowAccessor.AccessView()
   access.pinned=true;sticky.contentView=access
-  RunLoop.main.run(until:Date().addingTimeInterval(0.03))
+  let attachmentDeadline=Date().addingTimeInterval(2)
+  while sticky.level != .floating && Date()<attachmentDeadline {
+   RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  }
   precondition(sticky.level == .floating,"pin must change the actual sticky window level")
   precondition(dashboard.level == .normal,"other windows must remain normal")
   let top=sticky.frame.maxY

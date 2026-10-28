@@ -46,7 +46,8 @@ def main():
         if 'Shared' in sources:
             sources = list(dict.fromkeys(sources + ['DesktopPresentation', 'UsageAnalytics']))
         executable = OUT / name
-        command = ['xcrun', 'swiftc', '-parse-as-library', '-O', '-sdk', sdk]
+        # Keep optimized code paths while preserving assertion messages in CI.
+        command = ['xcrun', 'swiftc', '-parse-as-library', '-O', '-assert-config', 'Debug', '-sdk', sdk]
         for framework in ('SwiftUI', 'AppKit', 'WidgetKit', 'JavaScriptCore', 'Security', 'Network'):
             command += ['-framework', framework]
         command += [str(ROOT / 'macos' / f'{source}.swift') for source in sources]
