@@ -6,8 +6,9 @@
 
 ## Source build
 
-Use macOS 14+, full Xcode with its license accepted, Python 3.9+ (with sqlite3/ssl)
-and Node.js 22+. No pip/npm install is required for the application. Build scripts
+Use a host that can run Xcode 26 or newer with a matching macOS SDK, accept its
+license, and install Python 3.9+ (with sqlite3/ssl) and Node.js 22+. The built app
+targets macOS 14 or newer. No pip/npm install is required for the application. Build scripts
 prefer a working non-system Python rather than relying on the Xcode-dependent shim.
 
 ```sh
@@ -160,7 +161,7 @@ No updater or automatic telemetry service is included.
 
 ### 构建与验证
 
-源码需要 macOS 14+、已接受许可的完整 Xcode、Python 3.9+（含 sqlite3/ssl）、Node.js 22+。
+源码构建需要可运行 Xcode 26 或更新版本的 Mac、匹配的 macOS SDK、Python 3.9+（含 sqlite3/ssl）和 Node.js 22+，并须接受 Xcode 许可。构建出的应用以 macOS 14 为最低运行目标。
 应用无需 pip/npm 安装。运行`python3 scripts/build_macos.py`，产物为`build/Codex Pulse.app`。
 构建包括真正的 WidgetKit 扩展、目录数据、图标和签名；默认不安装、不启动、不更改灯光。
 本机已有固定签名配置时沿用该证书；首次发现唯一可用的 Apple 证书会在验证后固定。

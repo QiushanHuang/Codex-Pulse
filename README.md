@@ -216,7 +216,8 @@ plus display/position presets and custom X/Y placement. Existing settings are re
 
 ## Build and contribute
 
-Source builds need macOS 14+, full Xcode, Python 3.9+ and Node.js 22+.
+Source builds need Xcode 26 or newer with a matching macOS SDK, Python 3.9+ and Node.js 22+.
+The resulting app targets macOS 14+.
 There are no application-level pip or npm dependencies.
 
 ```sh
@@ -420,7 +421,7 @@ macOS 会安排小组件的刷新时间；留意“更新于”时间，或打�
 
 ### 源码构建与贡献
 
-需要 macOS 14+、完整 Xcode、Python 3.9+、Node.js 22+；应用无需额外 pip/npm 依赖。
+源码构建需要 Xcode 26 或更新版本及匹配的 macOS SDK、Python 3.9+、Node.js 22+；构建出的应用以 macOS 14 为最低运行目标，无需额外 pip/npm 依赖。
 
 ```sh
 git clone https://github.com/QiushanHuang/Codex-Pulse.git
