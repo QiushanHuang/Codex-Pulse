@@ -17,8 +17,25 @@ jobs:
           xcrun --sdk macosx --show-sdk-version
       - name: Diagnose window presentation on macOS 15
         run: |
+          ruby -e '
+            source = File.read("tests/WindowPresentationTests.swift")
+            original = %q{  precondition(shown.last === sticky && coordinator.selected == .sticky)}
+            diagnostic = %q{
+              print("after 20 ms: shown=\(shown.last === sticky), selected=\(String(describing: coordinator.selected))")
+              fflush(stdout)
+              let deadline = Date().addingTimeInterval(2)
+              while shown.last !== sticky && Date() < deadline {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+              }
+              print("after waiting: shown=\(shown.last === sticky), selected=\(String(describing: coordinator.selected))")
+              fflush(stdout)
+              precondition(shown.last === sticky && coordinator.selected == .sticky)
+            }
+            abort "diagnostic target not found" unless source.include?(original)
+            File.write(ARGV[0], source.sub(original, diagnostic))
+          ' "$RUNNER_TEMP/WindowPresentationDiagnostic.swift"
           xcrun swiftc -parse-as-library -Onone -framework SwiftUI -framework AppKit \
-            macos/WindowPresentation.swift tests/WindowPresentationTests.swift \
+            macos/WindowPresentation.swift "$RUNNER_TEMP/WindowPresentationDiagnostic.swift" \
             -o "$RUNNER_TEMP/pulse-window-diagnostic"
           codesign --force --sign - "$RUNNER_TEMP/pulse-window-diagnostic"
           "$RUNNER_TEMP/pulse-window-diagnostic"
