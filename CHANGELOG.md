@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.1 — 2026-10-28
+
+- Split the task comparison view into smaller components so Xcode 26.3 can compile
+  the app. CI selects a supported Xcode/SDK, and native window tests wait for the
+  main queue instead of assuming callbacks finish within 20 milliseconds.
+- 修复 Xcode 26.3 构建任务对比界面时的类型检查超时；CI 指定匹配的工具链，
+  原生窗口测试等待主队列完成，避免依赖固定的 20 毫秒时序。
+
+The app features and ad-hoc, unnotarized distribution remain the same as 2.2.0.
+应用功能及公开包的 ad-hoc 签名、未公证状态与 2.2.0 相同。
+
 ## 2.2.0 — 2026-10-28
 
 ### Interface and reminders / 界面与提醒

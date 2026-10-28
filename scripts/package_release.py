@@ -19,7 +19,7 @@ except ImportError:
     from signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '2.2.0'
+VERSION = '2.2.1'
 RUNTIMES = {
     'python': {
         'version': '3.13.15',

@@ -1,6 +1,15 @@
 import AppKit
 import SwiftUI
 @main struct WindowPresentationTests {
+ @MainActor static func drainMainQueue() {
+  var completed=false
+  DispatchQueue.main.async {completed=true}
+  let deadline=Date().addingTimeInterval(2)
+  while !completed && Date()<deadline {
+   RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  }
+  precondition(completed,"main queue did not drain before the deadline")
+ }
  @MainActor static func main() {
   _=NSApplication.shared
   let main=NSWindow(),sticky=NSWindow(),settings=NSWindow()
@@ -10,7 +19,7 @@ import SwiftUI
   coordinator.present(.sticky){opened.append($0)}
   precondition(opened==["sticky"] && hidden.last === main)
   coordinator.register(.sticky,window:sticky)
-  RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  drainMainQueue()
   precondition(shown.last === sticky && coordinator.selected == .sticky)
   coordinator.present(.dashboard){opened.append($0)}
   precondition(hidden.last === sticky && shown.last === main)
@@ -21,7 +30,7 @@ import SwiftUI
   let focus=FocusView();sticky.contentView=focus;sticky.makeFirstResponder(focus)
   precondition(sticky.firstResponder === focus)
   coordinator.present(.sticky){_ in}
-  RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  drainMainQueue()
   precondition(sticky.firstResponder !== focus,"opening clears toolbar autofocus")
   sticky.makeFirstResponder(focus)
   coordinator.becameKey(.sticky,window:sticky)
@@ -30,7 +39,7 @@ import SwiftUI
   precondition(hidden.last === sticky && coordinator.selected == .dashboard)
   let mainFocus=FocusView();main.contentView=mainFocus;main.makeFirstResponder(mainFocus)
   coordinator.present(.dashboard){_ in}
-  RunLoop.main.run(until:Date().addingTimeInterval(0.02))
+  drainMainQueue()
   precondition(main.firstResponder !== mainFocus,"dashboard opening clears automatic button focus")
   main.makeFirstResponder(mainFocus)
   coordinator.becameKey(.dashboard,window:main)

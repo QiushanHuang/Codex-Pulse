@@ -92,7 +92,7 @@ checks but reports the separate cold-launch scene check as unavailable.
 
 ## Reproduce the arm64 package
 
-The release packager needs **Python 3.12+**, a matching **2.2.0** app and extension,
+The release packager needs **Python 3.12+**, a matching **2.2.1** app and extension,
 `codesign`, `ditto`, `hdiutil` and network access for pinned upstream runtimes.
 It rejects an existing output directory to preserve previous artifacts.
 
@@ -109,7 +109,7 @@ xcodebuild -project macos/CodexPulse.xcodeproj -target CodexPulseWidget \
   CODE_SIGN_IDENTITY=-
 python3 scripts/package_release.py \
   --widget build/release/widget/CodexPulseWidget.appex \
-  --output build/release/v2.2.0
+  --output build/release/v2.2.1
 ```
 
 Downloads are pinned by URL and SHA-256. Extraction uses Python's `data` filter.
@@ -118,11 +118,11 @@ documentation, removes machine-specific input-authorization history, uses paths 
 to bundle resources, signs nested Mach-O files and verifies the bundle. It runs import
 and WebSocket smoke checks, then creates DMG, ZIP, manifest and checksums.
 
-Output defaults to `build/release/v2.2.0/`. `stage/` and `unpack/` are local staging
+Output defaults to `build/release/v2.2.1/`. `stage/` and `unpack/` are local staging
 folders, not separate release uploads. Publish only the named DMG, ZIP,
 `release-manifest.json` and `SHA256SUMS.txt`, alongside the tagged source archive.
 
-The public 2.2.0 package uses ad-hoc signing. To reproduce it on a Mac whose local
+The public 2.2.1 package uses ad-hoc signing. To reproduce it on a Mac whose local
 build uses a pinned certificate, package a separate staged copy with
 `--identity - --allow-signing-change`. This does not replace the installed app or
 change the pinned local certificate. Installing that public package over a
@@ -144,7 +144,7 @@ configurations, logs, recovery records, task screenshots or downloaded developme
 
 ## Signing and distribution limits
 
-The recipe preserves the selected local signing identity and produces **unnotarized** packages. On a host with no certificate or profile, it uses ad-hoc signing. The public 2.2.0 packages are ad-hoc signed; the local installation can use its pinned development certificate. It is not a
+The recipe preserves the selected local signing identity and produces **unnotarized** packages. On a host with no certificate or profile, it uses ad-hoc signing. The public 2.2.1 packages are ad-hoc signed; the local installation can use its pinned development certificate. It is not a
 Developer ID release pipeline. A notarized distribution additionally needs authorized
 Developer ID credentials, appropriate nested signing/entitlements, Apple notarization
 and stapling; those steps were not performed for 2.1.3. Check Gatekeeper behavior and
@@ -196,9 +196,9 @@ Intel 源码编译尚未验证。
 
 ### 打包
 
-发行打包需要 **Python 3.12+**、匹配的 2.2.0 主应用与扩展，以及 macOS 打包工具和网络。
+发行打包需要 **Python 3.12+**、匹配的 2.2.1 主应用与扩展，以及 macOS 打包工具和网络。
 运行`python3 scripts/package_release.py`；也可用`--widget`指定新扩展，`--output`指定新目录。
-公开的 2.2.0 包采用 ad-hoc 签名；在固定证书的机器上复现时，可对独立的打包副本指定
+公开的 2.2.1 包采用 ad-hoc 签名；在固定证书的机器上复现时，可对独立的打包副本指定
 `--identity - --allow-signing-change`。这不会替换安装版或修改本机固定证书；如果用公开包
 覆盖证书签名的安装版，身份会变化，可能需要重新授权输入监控。
 脚本拒绝覆盖已有输出，下载来源和 SHA-256 已固定，使用安全解包过滤器。
@@ -211,6 +211,6 @@ Intel 源码编译尚未验证。
 ### 签名边界
 
 打包流程保留选定的本机签名身份，仍然 **未公证**；没有证书／固定配置的全新构建机使用 ad-hoc。
-已发布的 2.2.0 包为 ad-hoc 签名；本机安装可沿用固定的开发证书。Apple Development 签名不等于 Developer ID 公证发布。正式 Developer ID 公证发布另需证书、适当的
+已发布的 2.2.1 包为 ad-hoc 签名；本机安装可沿用固定的开发证书。Apple Development 签名不等于 Developer ID 公证发布。正式 Developer ID 公证发布另需证书、适当的
 嵌套签名/权限、Apple notarization 和 stapling；2.1.3 没有执行这些步骤。
 因此不能声称首次打开无提示或更新后永远无需重新授权。未提供自动更新或遥测服务。

@@ -18,8 +18,8 @@ Codex Pulse is a native macOS companion that keeps background work visible in th
 menu bar, a resizable quota ring, a pinnable card, a screen-edge sidebar and, optionally,
 a compatible keyboard.
 
-> **Version 2.2.0:** a clearer workbench, customizable desktop surfaces, usage
-> history and task reminders. See the [release notes](docs/releases/v2.2.0.md).
+> **Version 2.2.1:** a clearer workbench, customizable desktop surfaces, usage
+> history and task reminders. See the [release notes](docs/releases/v2.2.1.md).
 
 ## Choose how much to show
 
@@ -91,7 +91,7 @@ operating guides are available.*
 
 ## Install
 
-Download **`Codex-Pulse-v2.2.0-macos-arm64.dmg`** from
+Download **`Codex-Pulse-v2.2.1-macos-arm64.dmg`** from
 [Releases](https://github.com/QiushanHuang/Codex-Pulse/releases/latest), open it and drag
 **Codex Pulse.app** to **Applications**. A ZIP containing the same app is also available.
 **Python and Node.js come bundled with the app.**
@@ -111,7 +111,7 @@ for the full steps.
 To verify a downloaded archive, download `SHA256SUMS.txt` from the same release and run:
 
 ```sh
-shasum -a 256 Codex-Pulse-v2.2.0-macos-arm64.dmg
+shasum -a 256 Codex-Pulse-v2.2.1-macos-arm64.dmg
 ```
 
 Compare the result with the matching line in `SHA256SUMS.txt`.
@@ -234,7 +234,7 @@ for SDK selection, the complete test commands, embedded runtimes and signing.
 
 [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) ·
 [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) ·
-[v2.2.0 release notes](docs/releases/v2.2.0.md)
+[v2.2.1 release notes](docs/releases/v2.2.1.md)
 
 Created and maintained by **[Qiushan (QiushanHuang)](https://github.com/QiushanHuang)**.
 See [contributors and attribution](CONTRIBUTORS.md). Source code and original artwork
@@ -256,8 +256,8 @@ use the [MIT License](LICENSE); bundled runtimes retain their
 Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在菜单栏、可置顶便签，
 可缩放圆环、屏幕侧边栏，以及可选的兼容键盘上。
 
-> **2.2.0 更新：**简化工作台，加入可自定义桌面组件、用量历史和任务提醒。
-> 详见[发布说明](docs/releases/v2.2.0.md)。
+> **2.2.1 更新：**简化工作台，加入可自定义桌面组件、用量历史和任务提醒。
+> 详见[发布说明](docs/releases/v2.2.1.md)。
 
 ### 选择适合你的展示方式
 
@@ -317,7 +317,7 @@ Codex 在后台运行时，你可以继续写代码、读文档。Pulse 在旁�
 ### 安装
 
 前往 [Releases](https://github.com/QiushanHuang/Codex-Pulse/releases/latest)，下载
-**`Codex-Pulse-v2.2.0-macos-arm64.dmg`**，打开后把 **Codex Pulse.app** 拖到
+**`Codex-Pulse-v2.2.1-macos-arm64.dmg`**，打开后把 **Codex Pulse.app** 拖到
 **Applications（应用程序）**。也提供包含同一应用的 ZIP。
 **下载包已内置 Python 与 Node.js**，复制到应用程序目录后即可启动。
 
@@ -335,7 +335,7 @@ Codex 在后台运行时，你可以继续写代码、读文档。Pulse 在旁�
 从同一 Release 下载 `SHA256SUMS.txt`，执行以下命令并与对应行比较：
 
 ```sh
-shasum -a 256 Codex-Pulse-v2.2.0-macos-arm64.dmg
+shasum -a 256 Codex-Pulse-v2.2.1-macos-arm64.dmg
 ```
 
 下载包适用于 Apple Silicon。Intel 用户可查看[源码构建要求](docs/building.md#中文)，目前尚未完成 Intel 构建测试。
@@ -435,7 +435,7 @@ SDK 选择、完整测试命令、运行时打包及签名见[构建说明](docs
 
 [操作指南](docs/user-guide.md#中文) · [常见问题](docs/troubleshooting.md#中文) ·
 [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) ·
-[v2.2.0 发布说明](docs/releases/v2.2.0.md)
+[v2.2.1 发布说明](docs/releases/v2.2.1.md)
 
 作者与维护者：**[Qiushan（QiushanHuang）](https://github.com/QiushanHuang)**。
 贡献署名见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。源码与原创图形采用 [MIT 许可](LICENSE)，

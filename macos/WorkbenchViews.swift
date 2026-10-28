@@ -315,39 +315,47 @@ struct TaskUsageComparison:View {
             ScrollView {
                 LazyVStack(spacing:8) {
                     ForEach(Array(tasks.enumerated()),id:\.element.id) {index,task in
-                        Button {selectedID=task.id} label: {
-                            VStack(alignment:.leading,spacing:9) {
-                                HStack(alignment:.top,spacing:8) {
-                                    Text(String(index+1)).font(.system(size:11,weight:.medium)).monospacedDigit()
-                                        .foregroundStyle(.secondary).frame(width:22,alignment:.leading)
-                                    Text(task.title.isEmpty ? "未命名任务":task.title)
-                                        .font(.system(size:12,weight:.medium)).lineLimit(2)
-                                        .frame(maxWidth:.infinity,alignment:.leading)
-                                    Circle().fill(task.color).frame(width:6,height:6).padding(.top,4)
-                                }
-                                HStack(spacing:10) {
-                                    GeometryReader {geometry in
-                                        Capsule().fill(Color.primary.opacity(0.08))
-                                        if let fraction=comparison.fraction(for:task) {
-                                            Capsule().fill(pulseMint.opacity(0.85)).frame(width:geometry.size.width*fraction)
-                                        }
-                                    }.frame(height:8).accessibilityHidden(true)
-                                    Text(task.comparableTokens.map{$0.formatted()} ?? "未提供")
-                                        .font(.system(size:11,weight:.medium)).monospacedDigit()
-                                        .frame(width:112,alignment:.trailing)
-                                }
-                            }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
-                                .background(selectedID==task.id ? pulseMint.opacity(0.12):Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
-                                .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(selectedID==task.id ? pulseMint.opacity(0.6):.clear,lineWidth:1))
-                                .contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                            .accessibilityLabel("\(task.title)，\(task.comparableTokens.map{String($0)+" tokens"} ?? "用量未提供")，\(task.label)")
-                            .accessibilityAddTraits(selectedID==task.id ? .isSelected:[])
-                            .help(task.title+" · "+(task.comparableTokens.map{$0.formatted()+" tokens"} ?? "用量未提供"))
+                        taskRow(task,index:index)
                     }
                 }
             }
         }
+    }
+    private func taskRow(_ task:PulseTask,index:Int)->some View {
+        let selected=selectedID==task.id
+        let title=task.title.isEmpty ? "未命名任务":task.title
+        let tokens=task.comparableTokens.map{$0.formatted()} ?? "未提供"
+        let accessibleTokens=task.comparableTokens.map{String($0)+" tokens"} ?? "用量未提供"
+        return Button {selectedID=task.id} label: {
+            VStack(alignment:.leading,spacing:9) {
+                HStack(alignment:.top,spacing:8) {
+                    Text(String(index+1)).font(.system(size:11,weight:.medium)).monospacedDigit()
+                        .foregroundStyle(.secondary).frame(width:22,alignment:.leading)
+                    Text(title).font(.system(size:12,weight:.medium)).lineLimit(2)
+                        .frame(maxWidth:.infinity,alignment:.leading)
+                    Circle().fill(task.color).frame(width:6,height:6).padding(.top,4)
+                }
+                HStack(spacing:10) {
+                    tokenBar(for:task)
+                    Text(tokens).font(.system(size:11,weight:.medium)).monospacedDigit()
+                        .frame(width:112,alignment:.trailing)
+                }
+            }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                .background(selected ? pulseMint.opacity(0.12):Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
+                .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(selected ? pulseMint.opacity(0.6):.clear,lineWidth:1))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .accessibilityLabel("\(title)，\(accessibleTokens)，\(task.label)")
+            .accessibilityAddTraits(selected ? .isSelected:[])
+            .help(title+" · "+(task.comparableTokens.map{$0.formatted()+" tokens"} ?? "用量未提供"))
+    }
+    private func tokenBar(for task:PulseTask)->some View {
+        GeometryReader {geometry in
+            Capsule().fill(Color.primary.opacity(0.08))
+            if let fraction=comparison.fraction(for:task) {
+                Capsule().fill(pulseMint.opacity(0.85)).frame(width:geometry.size.width*fraction)
+            }
+        }.frame(height:8).accessibilityHidden(true)
     }
 }
 
