@@ -15,6 +15,13 @@ jobs:
         run: |
           xcodebuild -version
           xcrun --sdk macosx --show-sdk-version
+      - name: Diagnose window presentation on macOS 15
+        run: |
+          xcrun swiftc -parse-as-library -Onone -framework SwiftUI -framework AppKit \
+            macos/WindowPresentation.swift tests/WindowPresentationTests.swift \
+            -o "$RUNNER_TEMP/pulse-window-diagnostic"
+          codesign --force --sign - "$RUNNER_TEMP/pulse-window-diagnostic"
+          "$RUNNER_TEMP/pulse-window-diagnostic"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
