@@ -8,9 +8,17 @@ struct AmbientLibraryPage: View {
     @State private var previewSource = "design"
     @State private var pagination = PresetPagination(itemCount: 0, pageSize: 3)
     @State private var locateAfterFiltering = false
+    @State private var pendingPreset: AmbientPreset?
+    @State private var confirmingPreset = false
+    @State private var restoringPreset = false
     private let catalog = AmbientCatalog.shared
     private let groups = [("all", "全部"), ("gkeys", "G1–G5 联动"), ("static", "静态"), ("loop", "循环"), ("zones", "分区"), ("reactive", "交互")]
     private var current: AmbientPreset? { catalog.presets.first { $0.id == model.preferences.ambientPreset } }
+    private var currentIsCustomized: Bool {
+        guard let current else { return true }
+        return model.preferences.ambientPalette != current.palette || model.preferences.ambientProfile != current.profile ||
+            abs(model.preferences.ambientPeriod - current.period) > 0.0001 || !model.preferences.ambientZones.isEmpty
+    }
     private var filtered: [AmbientPreset] { catalog.filtered(category: category, query: query) }
     private var visiblePresets: [AmbientPreset] {
         let items = filtered
@@ -22,6 +30,17 @@ struct AmbientLibraryPage: View {
         model.setPreference(\.ambientProfile, preset.profile)
         model.setPreference(\.ambientPeriod, preset.period)
         model.setPreference(\.ambientZones, [:])
+        if let index = filtered.firstIndex(where: { $0.id == preset.id }) { pagination.reveal(index: index) }
+    }
+    private func requestSelection(_ preset: AmbientPreset) {
+        guard preset.id != model.preferences.ambientPreset else { return }
+        if currentIsCustomized {
+            pendingPreset = preset
+            restoringPreset = false
+            confirmingPreset = true
+        } else {
+            select(preset)
+        }
     }
     private func color(_ hex: String) -> Color {
         let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
@@ -39,11 +58,7 @@ struct AmbientLibraryPage: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("灯效工作室").font(.title.bold())
-                        Text("\(catalog.presets.count) 个预设 · \(catalog.palettes.count) 组色板 · \(catalog.zones.count) 个分区")
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
+                    Text("灯效工作室").font(.title.bold())
                     Spacer()
                     Toggle("应用非功能区灯效", isOn: Binding(get: { model.preferences.ambientEnabled }, set: { model.setPreference(\.ambientEnabled, $0) }))
                         .toggleStyle(.switch).fixedSize()
@@ -53,6 +68,15 @@ struct AmbientLibraryPage: View {
                     editor(previewWidth: max(250, editorWidth - 32)).frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 }.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .confirmationDialog(restoringPreset ? "恢复此预设？" : "切换灯效预设？", isPresented: $confirmingPreset) {
+            Button(restoringPreset ? "恢复预设" : "切换预设", role: .destructive) {
+                if let pendingPreset { select(pendingPreset) }
+                pendingPreset = nil
+            }
+            Button("取消", role: .cancel) { pendingPreset = nil }
+        } message: {
+            Text("当前的色板、亮度布局、时长和分区调整将被预设值替换，无法自动恢复。")
         }
     }
 
@@ -138,14 +162,13 @@ struct AmbientLibraryPage: View {
     }
     private func presetRow(_ preset: AmbientPreset) -> some View {
         let selected = model.preferences.ambientPreset == preset.id
-        return Button { select(preset) } label: {
+        return Button { requestSelection(preset) } label: {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
                     Text(preset.name).font(.callout.weight(.semibold)).lineLimit(1)
                     Spacer(minLength: 0)
                     if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(pulseMint) }
                 }
-                Text(preset.description).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack(spacing: 4) {
                     ForEach(Array((catalog.palettes[preset.palette]?.colors ?? []).enumerated()), id: \.offset) { _, hex in
                         RoundedRectangle(cornerRadius: 2).fill(color(hex)).frame(width: 17, height: 4)
@@ -160,6 +183,7 @@ struct AmbientLibraryPage: View {
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityLabel(preset.name + "，" + preset.description)
             .accessibilityAddTraits(selected ? .isSelected : [])
+            .help(preset.description + "。选择预设会应用其色板、布局、时长和分区设置。")
     }
 
     private func editor(previewWidth: CGFloat) -> some View {
@@ -167,12 +191,16 @@ struct AmbientLibraryPage: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 7) {
                             Text(current?.name ?? "当前灯效").font(.title3.weight(.semibold))
-                            Text(current?.description ?? "").font(.caption).foregroundStyle(.secondary)
+                            if let current { PulseInfo(title:current.name,message:current.description) }
                         }
                         Spacer(minLength: 8)
-                        Button("恢复此预设") { if let current { select(current) } }.controlSize(.small).disabled(current == nil)
+                        Button("恢复此预设…") {
+                            pendingPreset = current
+                            restoringPreset = true
+                            confirmingPreset = true
+                        }.controlSize(.small).disabled(current == nil)
                     }
                     Picker("预览来源", selection: $previewSource) {
                         Text("设计预览").tag("design")
@@ -192,13 +220,13 @@ struct AmbientLibraryPage: View {
                     Divider()
                     HStack {
                         Text("非功能区总亮度")
+                        PulseInfo(title:"非功能区亮度",message:"分区与总亮度相乘；功能区沿用自己的状态灯效。")
                         Spacer()
                         Text("\(model.preferences.otherBrightness * 100, specifier: "%.0f")%").monospacedDigit()
                     }
-                    Slider(value: Binding(get: { model.preferences.otherBrightness }, set: { model.setPreference(\.otherBrightness, $0) }), in: 0...1, step: 0.01)
-                        .accessibilityLabel("非功能区总亮度")
-                    Text("分区与总亮度相乘；功能区沿用自己的状态灯效。")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Slider(value: Binding(get: { model.preferences.otherBrightness }, set: { model.setPreference(\.otherBrightness, $0) }), in: 0...1, step: 0.01) {
+                        Text("非功能区总亮度")
+                    }.labelsHidden().accessibilityLabel("非功能区总亮度")
                 }
             }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
         }.background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))

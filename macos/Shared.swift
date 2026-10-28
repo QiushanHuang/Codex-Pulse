@@ -3,6 +3,36 @@ import Foundation
 import Darwin
 import AppKit
 
+/// Compact, keyboard-accessible context for information that is useful on demand.
+struct PulseInfo: View {
+    let title: String
+    let message: String
+    @State private var isPresented = false
+
+    var body: some View {
+        Button { isPresented.toggle() } label: {
+            Image(systemName: "info.circle")
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(message)
+        .accessibilityLabel("\(title)说明")
+        .accessibilityHint("显示详细信息")
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(title).font(.headline)
+                Text(message).font(.callout).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                HStack {
+                    Spacer()
+                    Button("关闭") { isPresented = false }
+                }
+            }.padding(16).frame(width: 320)
+        }
+    }
+}
+
 enum PulsePaths {
     static var data: URL {
         let realHome = String(cString: getpwuid(getuid())!.pointee.pw_dir)
@@ -25,7 +55,7 @@ struct PulseTask: Codable, Identifiable {
     var isRunning: Bool? = nil
     var comparableTokens:Int? {tokensUsed.flatMap{$0>=0 ? $0:nil}}
     var tokenLabel: String { comparableTokens.map { PulseUsageFormat.compact(Double($0)) + " tokens" } ?? "— tokens" }
-    var usageSummary: String { tokenLabel + " · Credit 未提供" }
+    var usageSummary: String { tokenLabel }
     var label: String { ["active":"运行中", "completed":"轮次结束", "waiting_approval":"等待授权", "waiting_input":"等待回答", "interrupted":"已中断", "failed":"失败", "unknown":"待确认"][status] ?? "待确认" }
     var color: Color { status == "active" || status == "waiting_input" ? .cyan : status == "completed" ? .mint : status == "failed" ? .red : status == "waiting_approval" ? .orange:.secondary }
 }

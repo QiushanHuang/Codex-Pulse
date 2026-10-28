@@ -19,7 +19,7 @@ except ImportError:
     from signing_identity import available_identities, load_profile, select_signing_identity, ensure_compatible, pin_identity
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '2.1.3'
+VERSION = '2.2.0'
 RUNTIMES = {
     'python': {
         'version': '3.13.15',
@@ -55,7 +55,7 @@ def main():
     parser.add_argument('--app', type=Path, default=ROOT / 'build/Codex Pulse.app')
     parser.add_argument('--widget', type=Path, help='Optional freshly built extension to replace the source build extension')
     parser.add_argument('--downloads', type=Path, default=ROOT / 'build/release/downloads')
-    parser.add_argument('--output', type=Path, default=ROOT / 'build/release/v2.1.3')
+    parser.add_argument('--output', type=Path, default=ROOT / f'build/release/v{VERSION}')
     args = parser.parse_args()
     if os.uname().machine != 'arm64':
         raise SystemExit('This pinned release recipe is for Apple Silicon only.')
@@ -89,6 +89,9 @@ def main():
     widget_info = plistlib.loads((extension / 'Contents/Info.plist').read_bytes())
     if widget_info['CFBundleShortVersionString'] != VERSION:
         raise SystemExit('Fresh widget version must match the app version.')
+    # Xcode embeds absolute build paths in the extension's debug symbols. Remove
+    # those symbols from the distribution copy before signing it again below.
+    run('strip', '-S', extension / 'Contents/MacOS' / widget_info['CFBundleExecutable'])
     # Never distribute this machine's signing/authorization history.
     (resources / 'input-install-baseline.json').unlink(missing_ok=True)
     runtime = resources / 'runtime'
@@ -112,7 +115,8 @@ def main():
         shutil.copy2(ROOT / name, docs / name)
     # Preserve relative links in the offline documentation.
     for name in ('docs/user-guide.md', 'docs/troubleshooting.md', 'docs/building.md',
-                 'CONTRIBUTING.md', 'docs/releases/v2.1.3.md', 'docs/releases/release-validation.md'):
+                 'docs/usage-history.md', 'docs/task-reminders.md', 'docs/quota-mobile-notifications.md', 'CONTRIBUTING.md',
+                 f'docs/releases/v{VERSION}.md', 'docs/releases/release-validation.md'):
         destination = docs / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, destination)
@@ -152,7 +156,7 @@ def main():
         'if(typeof WebSocket !== "function") throw Error("WebSocket missing"); console.log("Bundled Node WebSocket OK")', env=env)
     (stage / 'Applications').symlink_to('/Applications')
     (stage / 'START-HERE.txt').write_text(
-        'Codex Pulse 2.1.3 — Apple Silicon / macOS 14+\n\n'
+        f'Codex Pulse {VERSION} — Apple Silicon / macOS 14+\n\n'
         'Drag Codex Pulse.app to Applications. Python and Node.js are included.\n'
         'Install and sign in to Codex separately. G HUB is optional for keyboard lighting.\n'
         f'{signing_label}; NOT Apple-notarized. Read the first-launch instructions:\n'

@@ -18,9 +18,8 @@ Codex Pulse is a native macOS companion that keeps background work visible in th
 menu bar, a resizable quota ring, a pinnable card, a screen-edge sidebar and, optionally,
 a compatible keyboard.
 
-> **Latest source update:** smaller sticky surfaces and an optional sidebar.
-> The downloadable release remains **v2.1.3**; build from source to use the new
-> surfaces. See the [update notes](CHANGELOG.md#unreleased--desktop-surfaces-2026-09-26).
+> **Version 2.2.0:** a clearer workbench, customizable desktop surfaces, usage
+> history and task reminders. See the [release notes](docs/releases/v2.2.0.md).
 
 ## Choose how much to show
 
@@ -92,7 +91,7 @@ operating guides are available.*
 
 ## Install
 
-Download **`Codex-Pulse-v2.1.3-macos-arm64.dmg`** from
+Download **`Codex-Pulse-v2.2.0-macos-arm64.dmg`** from
 [Releases](https://github.com/QiushanHuang/Codex-Pulse/releases/latest), open it and drag
 **Codex Pulse.app** to **Applications**. A ZIP containing the same app is also available.
 **Python and Node.js come bundled with the app.**
@@ -112,7 +111,7 @@ for the full steps.
 To verify a downloaded archive, download `SHA256SUMS.txt` from the same release and run:
 
 ```sh
-shasum -a 256 Codex-Pulse-v2.1.3-macos-arm64.dmg
+shasum -a 256 Codex-Pulse-v2.2.0-macos-arm64.dmg
 ```
 
 Compare the result with the matching line in `SHA256SUMS.txt`.
@@ -122,9 +121,9 @@ The download is for Apple Silicon. Intel users can review the
 ## Start here
 
 1. Open Codex and sign in, then launch **Codex Pulse**.
-2. Open **总览** (Overview) or **额度与趋势** (Quota & Trends). Quota is sampled every
-   15 seconds during active turns and 120 seconds while idle in the current source build;
-   local task changes wake the monitor immediately. The published 2.1.3 package uses the earlier 60/5-second cadence.
+2. Open **总览** (Overview) or **额度与用量** (Quota & Usage). Quota is sampled every
+   15 seconds during active turns and 120 seconds while idle; local task changes wake
+   the monitor immediately.
 3. Open **任务** (Tasks) to search, filter and return to a task in Codex.
 4. Choose **便签模式** (Sticky Mode), or press **⌘⇧M**. Pin the card with its pin button.
    Switch back to the workbench for details; monitoring continues as you change views.
@@ -136,7 +135,7 @@ The download is for Apple Silicon. Intel users can review the
 
 <p align="center"><img src="docs/images/sticky.png" width="360" alt="Compact sticky card with example quota, consumption rate and tasks"></p>
 
-The current source build adds **OpenAI Status** directly below Tibo in the menu.
+The menu includes **OpenAI Status** directly below Tibo in the menu.
 In **Settings → General → Task reminders**, enable system notifications and edge cards.
 Completion alerts work from local turn records; permission and question alerts require
 **Connect Codex permission and question reminders**, followed by Codex hook trust review.
@@ -228,12 +227,13 @@ open "build/Codex Pulse.app"
 ```
 
 Quit an app running from `build/` before rebuilding it. Local builds use external
-runtimes and ad-hoc signing by default. See [building and packaging](docs/building.md)
+runtimes and preserve a pinned certificate when available; otherwise a fresh build
+may use ad-hoc signing. See [building and packaging](docs/building.md)
 for SDK selection, the complete test commands, embedded runtimes and signing.
 
 [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) ·
 [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) ·
-[v2.1.3 release notes](docs/releases/v2.1.3.md)
+[v2.2.0 release notes](docs/releases/v2.2.0.md)
 
 Created and maintained by **[Qiushan (QiushanHuang)](https://github.com/QiushanHuang)**.
 See [contributors and attribution](CONTRIBUTORS.md). Source code and original artwork
@@ -255,8 +255,8 @@ use the [MIT License](LICENSE); bundled runtimes retain their
 Codex Pulse 是原生 macOS 辅助工作台，让后台工作的状态出现在菜单栏、可置顶便签，
 可缩放圆环、屏幕侧边栏，以及可选的兼容键盘上。
 
-> **最新源码更新：**更小的便签与可选侧边栏。当前下载包仍为 **v2.1.3**，
-> 新功能请从源码构建；完整内容见[更新说明](CHANGELOG.md#unreleased--desktop-surfaces-2026-09-26)。
+> **2.2.0 更新：**简化工作台，加入可自定义桌面组件、用量历史和任务提醒。
+> 详见[发布说明](docs/releases/v2.2.0.md)。
 
 ### 选择适合你的展示方式
 
@@ -316,7 +316,7 @@ Codex 在后台运行时，你可以继续写代码、读文档。Pulse 在旁�
 ### 安装
 
 前往 [Releases](https://github.com/QiushanHuang/Codex-Pulse/releases/latest)，下载
-**`Codex-Pulse-v2.1.3-macos-arm64.dmg`**，打开后把 **Codex Pulse.app** 拖到
+**`Codex-Pulse-v2.2.0-macos-arm64.dmg`**，打开后把 **Codex Pulse.app** 拖到
 **Applications（应用程序）**。也提供包含同一应用的 ZIP。
 **下载包已内置 Python 与 Node.js**，复制到应用程序目录后即可启动。
 
@@ -334,7 +334,7 @@ Codex 在后台运行时，你可以继续写代码、读文档。Pulse 在旁�
 从同一 Release 下载 `SHA256SUMS.txt`，执行以下命令并与对应行比较：
 
 ```sh
-shasum -a 256 Codex-Pulse-v2.1.3-macos-arm64.dmg
+shasum -a 256 Codex-Pulse-v2.2.0-macos-arm64.dmg
 ```
 
 下载包适用于 Apple Silicon。Intel 用户可查看[源码构建要求](docs/building.md#中文)，目前尚未完成 Intel 构建测试。
@@ -342,7 +342,7 @@ shasum -a 256 Codex-Pulse-v2.1.3-macos-arm64.dmg
 ### 快速开始
 
 1. 打开并登录 Codex，然后启动 **Codex Pulse**。
-2. 在 **总览** 或 **额度与趋势** 查看数据；当前源码在任务运行时每 15 秒、空闲时每 120 秒读取额度，本机任务随文件变化更新。已发布的 2.1.3 包仍使用原来的 60/5 秒间隔。
+2. 在 **总览** 或 **额度与用量** 查看数据；任务运行时每 15 秒、空闲时每 120 秒读取额度，本机任务随文件变化更新。
 3. 在 **任务** 搜索、筛选，点击相应入口回到 Codex。
 4. 选择 **便签模式** 或按 **⌘⇧M**，用图钉切换置顶。需要详情时切回工作台，
    切换视图期间监控继续运行。
@@ -363,7 +363,7 @@ macOS 会安排小组件的刷新时间；留意“更新于”时间，或打�
 在 **额度与用量 → 时段分析** 查询 Credit／额度历史和任务 Token 增量，支持指定时间、
 缩放、拖选与任务平均消耗速度。[记录方式与范围](docs/usage-history.md)。
 
-当前源码在菜单栏 Tibo 入口下增加 **OpenAI 服务状态**。在 **设置 → 通用 → 任务提醒** 开启系统通知或侧边卡片；
+菜单栏 Tibo 入口下提供 **OpenAI 服务状态**。在 **设置 → 通用 → 任务提醒** 开启系统通知或侧边卡片；
 轮次结束提醒直接读取本机记录，权限与问题提醒需点击连接按钮，并在 Codex 中审阅、信任 Hooks。
 完成、问答、审批、失败、中断、额度重置可分别选择 14 种音效或静音，逐项试听并自动保存。
 连接会备份并合并 `~/.codex/hooks.json`，不会替你授权或回答。点击提示进入任务；详见[提醒设置与范围](docs/task-reminders.md)。
@@ -429,12 +429,12 @@ python3 scripts/build_macos.py
 open "build/Codex Pulse.app"
 ```
 
-若正在运行 `build/` 中的应用，请先退出再构建。本地构建默认使用外部解释器与 ad-hoc 签名。
+若正在运行 `build/` 中的应用，请先退出再构建。本地构建使用外部解释器；有固定证书时沿用证书，新环境可能使用 ad-hoc 签名。
 SDK 选择、完整测试命令、运行时打包及签名见[构建说明](docs/building.md#中文)。
 
 [操作指南](docs/user-guide.md#中文) · [常见问题](docs/troubleshooting.md#中文) ·
 [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) ·
-[v2.1.3 发布说明](docs/releases/v2.1.3.md)
+[v2.2.0 发布说明](docs/releases/v2.2.0.md)
 
 作者与维护者：**[Qiushan（QiushanHuang）](https://github.com/QiushanHuang)**。
 贡献署名见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。源码与原创图形采用 [MIT 许可](LICENSE)，

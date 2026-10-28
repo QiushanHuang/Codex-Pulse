@@ -4,7 +4,7 @@
 
 [English](#english) · [简体中文](#中文) · [README](../README.md)
 
-These features are in the current source candidate, not the published 2.1.3 package.
+These features are included in the 2.2.0 release.
 
 Quota uses the signed-in Codex account's read-only app-server interface. Active
 turns are sampled every 15 seconds; idle accounts every 120 seconds. Starting or
@@ -21,7 +21,7 @@ parsing the entire tail. Other platforms keep a five-second fallback task check.
 Open **Settings → General → Task reminders → Notification delivery**. Choose
 **Pulse cards**, **macOS notifications**, **Both**, or **Off**. Selecting one channel
 avoids duplicate popups; existing preferences are preserved. Sound has its own
-control, and Off also silences reminder sounds. Pulse offers 14 local macOS sounds plus Silent for each event: completion, question, approval, failure, interruption and confirmed quota reset. Defaults use distinct sounds; selections persist across restarts. Each row has a Preview button, independent of the master switch. Sound plays independently of system-banner presentation. Notification content is
+control, and Off also silences reminder sounds. Pulse offers 14 local macOS sounds plus Silent for each event: completion, question, approval, failure, interruption and confirmed quota reset. Defaults use distinct sounds; selections persist across restarts. Expand **各类提示音** to choose or preview each sound independently of the master switch. Sound plays independently of system-banner presentation. Notification content is
 silent to avoid a duplicate cue, and bursts are coalesced. The sound follows the
 current output device/volume. Simultaneous events play one cue, prioritizing failure, approval, question, interruption, reset, then completion; silent events do not consume the sound budget. Choose **Allow system notifications** when
 ready. Cards remain usable if macOS notifications are denied. They slide in briefly,
@@ -70,7 +70,7 @@ account interface described in the [app-server documentation](https://learn.chat
 
 [English](#english) · [简体中文](#中文)
 
-这些功能属于当前源码候选版，已发布的 2.1.3 包仍保留旧行为。
+这些功能已包含在 2.2.0 版本中。
 
 额度继续从已登录 Codex 的只读接口获取。任务运行时每 15 秒读取、空闲时每 120 秒读取；
 任务开始或结束、手动刷新会补读。收到接口更新事件时也会更新，但独立 app-server 不能保证
@@ -84,7 +84,7 @@ macOS 用文件变化唤醒任务监控和界面，流式写入最多每秒扫�
 提示音单独控制，选择「关闭」时提醒也不会响。
 开启「提醒提示音」后，Pulse 在新事件到来时直接播放短音，连续事件会合并；
 系统通知内容不再另响一遍。完成、需要回答、等待审批、失败、中断、额度重置分别使用不同默认音效；
-每类可选 14 种 macOS 音效或静音，选择会保存。每行「试听」不受声音总开关限制。
+展开「各类提示音」后，每类可选 14 种 macOS 音效或静音，选择会保存。每行「试听」不受声音总开关限制。
 同批事件按失败、审批、问答、中断、重置、完成的优先级播放一种声音，静音事件不占用播放间隔。
 声音跟随当前输出设备／音量。额度重置只使用服务端已确认的 reset 事件，不按倒计时推测。
 点击 **允许系统通知** 请求 macOS 授权；即使关闭系统通知，卡片仍可使用。

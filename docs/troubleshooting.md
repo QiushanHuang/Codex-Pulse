@@ -6,7 +6,7 @@
 
 ## First launch
 
-The v2.1.3 arm64 download is ad-hoc signed, not signed with a Developer ID certificate
+The v2.2.0 arm64 download is ad-hoc signed, not signed with a Developer ID certificate
 and not Apple-notarized. Verify its SHA-256 against the same release's checksums, copy
 the app into Applications and attempt to open it. If macOS blocks it, look in System
 Settings → Privacy & Security for Open Anyway and confirm only for the downloaded
@@ -27,7 +27,7 @@ do not use that bundle. A source build is an alternative if you have the build t
 
 | Symptom | Check / action |
 | --- | --- |
-| No quota or stale quota | Open Codex, check sign-in/network and wait one 60-second sample; check the app's timestamp and diagnostic message |
+| No quota or stale quota | Open Codex, check sign-in/network and wait for a sample (15 seconds while active, 120 seconds while idle); check the app's timestamp and diagnostic message |
 | Codex CLI not found | Install Codex.app or ChatGPT.app in `/Applications` or `~/Applications`; a CLI-only setup must expose `codex` to the app's environment, not just an interactive shell |
 | Background exited / already running | Quit duplicate copies; inspect `monitor.log`; reopen once the old monitor has exited |
 | Widget absent or delayed | Launch the installed app once, reopen Edit Widgets; system scheduling and ad-hoc extension policy may still delay/prevent availability |
@@ -68,7 +68,7 @@ checked on a newer Apple Silicon Mac, not a clean macOS 14 installation.
 
 ### 首次打开
 
-v2.1.3 arm64 包为 ad-hoc 签名，没有 Developer ID 证书，也未经 Apple 公证。
+v2.2.0 arm64 包为 ad-hoc 签名，没有 Developer ID 证书，也未经 Apple 公证。
 核对同一 Release 的 SHA-256，复制到应用程序后尝试打开。
 如被阻止，在系统设置 → 隐私与安全性中查找“仍要打开”，只确认你主动下载的 Pulse。
 不同 macOS 和管理策略可能没有相同入口；受管理设备可能需要管理员处理。
@@ -85,7 +85,7 @@ codesign --verify --deep --strict "/Applications/Codex Pulse.app"
 
 | 现象 | 检查与处理 |
 | --- | --- |
-| 额度缺失或过期 | 检查 Codex 登录与网络，等待一次 60 秒采样，查看更新时间和诊断信息 |
+| 额度缺失或过期 | 检查 Codex 登录与网络，等待一次采样（运行时 15 秒，空闲时 120 秒），查看更新时间和诊断信息 |
 | 找不到 Codex CLI | 把 Codex.app/ChatGPT.app 放入 `/Applications` 或 `~/Applications`；单独 CLI 必须对应用启动环境可见，终端能找到并不充分 |
 | 后台退出或已被占用 | 退出重复副本，查看 `monitor.log`，旧进程退出后再启动 |
 | 没有小组件或更新慢 | 启动安装后的应用再打开小组件面板；系统调度及 ad-hoc 扩展策略仍可能延迟或阻止显示 |

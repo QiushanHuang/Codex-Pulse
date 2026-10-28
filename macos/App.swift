@@ -485,7 +485,7 @@ struct InputAttentionNotice:View {
 }
 
 enum SettingsCategory: String, CaseIterable, Identifiable {
-    case general="通用与外观", desktop="便签与侧边栏", input="隐私与诊断", widgets="小组件与说明"
+    case general="通用与外观", desktop="便签与侧边栏", input="隐私与诊断", widgets="小组件"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -493,14 +493,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .desktop: return "sidebar.right"
         case .input: return "checkmark.shield"
         case .widgets: return "square.grid.2x2"
-        }
-    }
-    var detail:String {
-        switch self {
-        case .general:return "管理菜单栏外观与后台监控。"
-        case .desktop:return "选择便签大小，让状态轻轻停靠在屏幕边缘。"
-        case .input:return "检查普通按键响应、输入权限与服务状态。"
-        case .widgets:return "添加小组件，了解数据范围与刷新方式。"
         }
     }
 }
@@ -523,15 +515,11 @@ struct PulseSettings: View {
                         .accessibilityAddTraits(category == item ? .isSelected:[])
                 }
                 Spacer()
-                Text("设置自动保存").font(.caption).foregroundStyle(.secondary)
             }.padding(20).frame(width:185)
             Divider()
             ScrollView {
                 VStack(alignment:.leading,spacing:22) {
-                    VStack(alignment:.leading,spacing:7) {
-                        Text(category.rawValue).font(.title2.bold())
-                        Text(category.detail).font(.callout).foregroundStyle(.secondary)
-                    }
+                    Text(category.rawValue).font(.title2.bold())
                     switch category {
                     case .general: generalSettings
                     case .desktop: DesktopSurfaceSettings(model:model)
@@ -552,15 +540,17 @@ struct PulseSettings: View {
             Text("Dock 与菜单栏").font(.headline)
             Toggle("在 Dock 中显示",isOn:$showInDock)
                 .onChange(of:showInDock) { _,visible in PulseApplicationDelegate.applyDockVisibility(visible) }
-            Text("关闭后隐藏 Dock 图标，仍可从菜单栏打开窗口和设置，后台监控继续运行。").font(.caption).foregroundStyle(.secondary)
+                .help("关闭后仍可从菜单栏打开窗口，后台监控继续运行。")
             Divider()
             Text("应用外观").font(.headline)
             Picker("配色",selection:Binding(get:{model.appearance},set:{model.setAppearance($0)})) {
                 ForEach(PulseAppearance.allCases) {Text($0.title).tag($0)}
             }.pickerStyle(.segmented)
-            Text("跟随系统会随 macOS 外观自动切换。主题只改变界面，不改变键盘配色。").font(.caption).foregroundStyle(.secondary)
             Divider()
-            Text("菜单栏外观").font(.headline)
+            HStack {
+                Text("菜单栏外观").font(.headline)
+                PulseInfo(title:"菜单栏外观",message:"半环表示主额度窗口中的最低剩余值；数据待更新时显示虚线。")
+            }
             ForEach(MenuBarIconStyle.allCases,id:\.rawValue) { style in
                 Button { model.setMenuBarStyle(style) } label: {
                     HStack(spacing:14) {
@@ -571,16 +561,18 @@ struct PulseSettings: View {
                             .foregroundStyle(model.menuBarPreferences.style == style ? pulseMint:.secondary)
                     }.padding(12).background(Color.primary.opacity(0.04),in:RoundedRectangle(cornerRadius:9))
                 }.buttonStyle(.plain)
+                    .accessibilityAddTraits(model.menuBarPreferences.style == style ? .isSelected:[])
             }
-            Text("半环表示主额度窗口中的最低剩余值；数据待更新时显示虚线。选择后自动保存。").font(.caption).foregroundStyle(.secondary)
             Divider()
-            Text("后台监控").font(.headline)
+            HStack {
+                Text("后台监控").font(.headline)
+                PulseInfo(title:"后台监控",message:"运行任务时每 15 秒读取额度，空闲时每 120 秒读取；任务变化与手动刷新会触发补读。关闭窗口后继续运行，退出应用后停止。")
+            }
             HStack {
                 Label(model.running ? "监控运行中":"监控已暂停",systemImage:"waveform.path")
                 Spacer()
                 Button(model.running ? "暂停监控":"启动监控") { model.running ? model.stop():model.start() }
             }
-            Text("运行任务时每 15 秒读取额度，空闲时每 120 秒读取；任务开始、结束与手动刷新会触发补读。本机任务与界面随文件变化更新。关闭窗口后继续运行，退出 App 后停止。").font(.caption).foregroundStyle(.secondary)
             if let reminders=model.reminders {Divider();TaskReminderSettings(model:model,reminders:reminders)}
             Divider()
             QuotaNotificationSettings(model:model)
@@ -591,7 +583,7 @@ struct PulseSettings: View {
             GroupBox("普通按键响应") {
                 VStack(alignment:.leading,spacing:12) {
                     Toggle("响应普通键盘输入",isOn:Binding(get:{model.preferences.ambientInputEnabled},set:{model.setPreference(\.ambientInputEnabled,$0)}))
-                    Text("同时开启状态灯光和交互预设后才会监听；只接收物理按键位置，不读取输入文字。").font(.caption).foregroundStyle(.secondary)
+                        .help("同时开启键盘联动和交互预设后才会监听；只接收物理按键位置，不读取输入文字。")
                     InputAuthorizationView()
                 }.padding(12).frame(maxWidth:.infinity,alignment:.leading)
             }
@@ -605,18 +597,21 @@ struct PulseSettings: View {
                     Button("查看监控日志") {NSWorkspace.shared.open(PulsePaths.data.appendingPathComponent("monitor.log"))}
                 }.font(.callout).padding(12).frame(maxWidth:.infinity,alignment:.leading)
             }
+            GroupBox("本机数据") {
+                VStack(alignment:.leading,spacing:12) {
+                    LabeledContent("会话范围",value:"最近 30 个未归档会话")
+                    LabeledContent("记录内容",value:"会话元数据；不保存正文或登录令牌")
+                    LabeledContent("历史保留",value:"30 天")
+                }.font(.callout).padding(12).frame(maxWidth:.infinity,alignment:.leading)
+            }
         }
     }
     private var widgetSettings: some View {
         VStack(alignment:.leading,spacing:16) {
             Text("添加桌面／通知中心小组件").font(.headline)
-            Text("右键桌面 → 编辑小组件 → 搜索 Codex Pulse → 选择尺寸。大尺寸显示最近任务与额度趋势。")
+            Text("右键桌面 → 编辑小组件 → 搜索 Codex Pulse。")
             Button("刷新小组件") { model.refresh();WidgetCenter.shared.reloadAllTimelines() }
-            Text("小组件由 macOS 安排刷新，可能有延迟；实时状态请查看主窗口。").font(.caption).foregroundStyle(.secondary)
-            Divider()
-            Text("数据与隐私").font(.headline)
-            Text("仅监测本机最近 30 个未归档会话，历史保留 30 天。不会保存会话正文或登录令牌。轮次结束不代表任务目标已验收。")
-            Text("消耗速度按最近一小时连续样本估算，至少需要五分钟；预测不代表承诺。").font(.caption).foregroundStyle(.secondary)
+            Text("小组件由 macOS 安排刷新，可能有延迟。").font(.caption).foregroundStyle(.secondary)
         }.font(.callout)
     }
 }
@@ -638,10 +633,10 @@ struct LightingPanel: View {
                         Text(count==4 ? "4 个及以上":"\(count) 个任务").frame(width:84,alignment:.leading)
                         Picker("风格",selection:Binding(get:{model.preferences.style(count)},set:{model.setStyle(count,$0)})) {
                             ForEach(RunningStyle.allCases) { style in Text(style.title(count)).tag(style) }
-                        }.labelsHidden().frame(maxWidth:.infinity)
+                        }.labelsHidden().accessibilityLabel(count == 4 ? "4 个及以上任务的风格":"\(count) 个任务的风格")
+                            .help(model.preferences.style(count).detail).frame(maxWidth:.infinity)
                         Button("演示") { model.preview("running",taskCount:count) }.disabled(!model.running || !model.lightingActive)
                     }
-                    Text(model.preferences.style(count).detail).font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Divider()
@@ -649,7 +644,7 @@ struct LightingPanel: View {
                     Slider(value:Binding(get:{model.preferences.cycleSeconds},set:{model.setPreference(\.cycleSeconds,$0)}),in:2...30,step:1).accessibilityLabel("运行一轮时长")
                     HStack { Text("2 秒 · 更快");Spacer();Text("30 秒 · 更慢") }.font(.caption).foregroundStyle(.secondary)
                     Toggle("低额度时 Logo 红色常亮",isOn:Binding(get:{model.preferences.lowAlertEnabled},set:{model.setPreference(\.lowAlertEnabled,$0)}))
-                    Text("低额度阈值为 25%。关闭后仅熄灭低额度红灯，重置提示仍保留。").font(.caption).foregroundStyle(.secondary)
+                        .help("低额度阈值为 25%。关闭后仅熄灭低额度红灯，重置提示仍保留。")
             HStack(spacing:8) {
                 Text("状态演示").font(.caption).foregroundStyle(.secondary)
                 ForEach(["completed","reset","low"],id:\.self) { scene in
@@ -658,8 +653,9 @@ struct LightingPanel: View {
                 }
                 if model.previewScene != nil { Button("结束演示") { model.stopPreview() } }
             }.controlSize(.small)
-            Text(model.previewScene != nil ? "正在演示；播放后自动返回实时状态，额度与任务记录不受影响。":"运行演示会展示完整一轮。关闭状态灯后，G HUB 继续原来的配色或动画。")
-                .font(.caption2).foregroundStyle(model.previewScene != nil ? .cyan:.secondary)
+            if model.previewScene != nil {
+                Text("正在演示 · 结束后恢复实时状态").font(.caption).foregroundStyle(.cyan)
+            }
         }
     }
 }
@@ -669,6 +665,7 @@ struct LightSettingsSheet: View {
     var embedded = false
     @Environment(\.dismiss) private var dismiss
     @State private var hexInput="#FFC284"
+    @State private var hexError=false
     @State private var confirmReset=false
     private func binding(_ path: WritableKeyPath<LightPreferences,Double>)->Binding<Double> {
         Binding(get:{model.preferences[keyPath:path]},set:{model.setPreference(path,$0)})
@@ -680,6 +677,14 @@ struct LightSettingsSheet: View {
             Text("\(model.preferences[keyPath:path]*100,specifier:"%.0f")%").font(.callout).monospacedDigit().frame(width:42,alignment:.trailing)
         }
     }
+    private func applyHexColor() {
+        guard hexInput.range(of:"^#[0-9A-Fa-f]{6}$",options:.regularExpression) != nil else {
+            hexError=true
+            return
+        }
+        hexError=false
+        model.setPreference(\.otherColor,hexInput.uppercased())
+    }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
             if !embedded {
@@ -687,8 +692,11 @@ struct LightSettingsSheet: View {
             }
             Group {
                 VStack(alignment:.leading,spacing:15) {
+                    HStack {
+                        Text("亮度").font(.headline)
+                        PulseInfo(title:"亮度",message:"实际亮度为全局亮度乘以分区亮度；设为 0% 会关闭该区域。")
+                    }
                     brightness("全局亮度",\.globalBrightness)
-                    Text("实际亮度 = 全局 × 分区；设为 0% 即关闭该区域。").font(.caption).foregroundStyle(.secondary)
                     Divider()
                     Text("功能区").font(.headline)
                     brightness("F1–F10 额度条",\.quotaBrightness)
@@ -701,13 +709,15 @@ struct LightSettingsSheet: View {
                     HStack {
                         ColorPicker("颜色",selection:Binding(get:{model.preferences.ambientColor},set:{model.setAmbientColor($0)}),supportsOpacity:false)
                         TextField("#RRGGBB",text:$hexInput).font(.system(.body,design:.monospaced)).frame(width:96)
-                            .onSubmit {
-                                if hexInput.range(of:"^#[0-9A-Fa-f]{6}$",options:.regularExpression) != nil { model.setPreference(\.otherColor,hexInput.uppercased()) }
-                                else { hexInput=model.preferences.otherColor }
-                            }
+                            .accessibilityLabel("颜色十六进制值")
+                            .onSubmit {applyHexColor()}
+                            .onChange(of:hexInput) {_,_ in hexError=false}
+                        Button("应用颜色") {applyHexColor()}
                     }.disabled(!model.preferences.otherColorEnabled || model.preferences.ambientEnabled)
-                    Text("包含 G1–G5、主键区、导航键、F11/F12。启用预设时，原统一颜色暂不生效；关闭预设后恢复原配色。").font(.caption).foregroundStyle(.secondary)
-                    Divider()
+                    if hexError {Text("请输入 #RRGGBB 格式的颜色。").font(.caption).foregroundStyle(.orange)}
+                    if model.preferences.ambientEnabled && model.preferences.otherColorEnabled {
+                        Text("预设启用时，自定义颜色暂不生效。").font(.caption).foregroundStyle(.secondary)
+                    }
                     Divider()
                     Text("空闲降亮与休眠").font(.headline)
                     Stepper(value:binding(\.idleAfterSeconds),in:30...1800,step:30) {
@@ -717,10 +727,9 @@ struct LightSettingsSheet: View {
                     Stepper(value:binding(\.sleepAfterSeconds),in:60...7200,step:30) {
                         HStack { Text("空闲多久后休眠");Spacer();Text("\(model.preferences.sleepAfterSeconds/60,specifier:"%.1f") 分钟").monospacedDigit() }
                     }.accessibilityLabel("空闲休眠延时")
-                    Text("降亮延时 30 秒–30 分钟，目标亮度 0–100%；休眠 1–120 分钟，并始终晚于降亮。省电由键盘执行，不在动画里再叠乘一次。").font(.caption).foregroundStyle(.secondary)
                     Button("显示 5 秒满亮白光（自检）") { model.preview("brightness-test") }
                         .disabled(!model.running || !model.lightingActive)
-                    Text("暂时用白光对比实际亮度，5 秒后恢复原颜色与动画。自检会唤醒灯光。").font(.caption).foregroundStyle(.secondary)
+                        .help("自检会唤醒灯光，5 秒后恢复原颜色与动画。")
                 }.padding(.trailing,4)
             }
             HStack { Button("恢复全部灯光默认设置…"){confirmReset=true};Spacer();Text(model.deviceReady && model.lighting ? "自动保存 · 等待设备应用":"自动保存 · 设备连接后应用").font(.caption).foregroundStyle(.secondary) }

@@ -116,9 +116,12 @@ struct SidebarDetailContent:View {
                 Image(systemName:"waveform.path").font(.system(size:21)).foregroundStyle(pulseMint)
                 VStack(alignment:.leading,spacing:3) {
                     Text("Codex Pulse").font(.system(size:17,weight:.semibold,design:.rounded))
-                    Text(!running ? "监控已暂停":snapshot.stale ? "等待最新采样":"拖动边角可调整大小")
-                        .font(.system(size:11)).foregroundStyle(!running || snapshot.stale ? .orange:.secondary)
+                    if !running || snapshot.stale {
+                        Text(!running ? "监控已暂停":"等待最新采样")
+                            .font(.system(size:11)).foregroundStyle(.orange)
+                    }
                 }
+                .help("拖动边角可调整大小")
                 Spacer()
                 Button(action:close) {Image(systemName:"xmark").frame(width:24,height:24)}
                     .buttonStyle(.plain).help("收起侧边详情（Esc）").accessibilityLabel("收起侧边详情")
@@ -133,7 +136,7 @@ struct SidebarDetailContent:View {
                 Picker("查看内容",selection:$page) {
                     Text("额度总览").tag(0)
                     Text("最近任务").tag(1)
-                }.pickerStyle(.segmented).labelsHidden()
+                }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("查看内容")
             }
             ScrollView {
                 VStack(alignment:.leading,spacing:16) {
@@ -144,7 +147,6 @@ struct SidebarDetailContent:View {
                                 VStack(alignment:.leading,spacing:9) {
                                     Text("可用余额").font(.system(size:13,weight:.semibold))
                                     CreditBalanceLine(snapshot:snapshot,running:running)
-                                    Text("套餐、余额、重置次数独立").font(.system(size:10)).foregroundStyle(.secondary)
                                 }
                             }.padding(12).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:16))
                             AccountUsageSummary(snapshot:snapshot,compact:true)
@@ -159,7 +161,6 @@ struct SidebarDetailContent:View {
                             if content.shows(.quota) {Divider()}
                             HStack {
                                 Text("最近任务").font(.system(size:12,weight:.semibold));Spacer()
-                                if content.showsTabs {Button("单独查看"){page=1}.font(.caption).buttonStyle(.plain).foregroundStyle(pulseMint)}
                             }
                             taskList(limit:content.taskLimit)
                         }

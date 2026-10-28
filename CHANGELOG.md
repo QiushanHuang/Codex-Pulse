@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased — persistent local signing identity (2026-10-24)
+## 2.2.0 — 2026-10-28
+
+### Interface and reminders / 界面与提醒
+
+- Put current quota and task actions first, simplify settings and move optional context
+  into accessible information controls. The task list opens by default; destructive
+  resets and replacement of customized lighting retain explicit confirmation.
+- Keep the selected lighting preset visible after resizing. A selected preset no longer
+  resets its own customizations when clicked again. Color codes have an Apply action
+  and an inline format error.
+- Add task cards, macOS notifications and per-event sounds. Permission and question
+  hooks are an opt-in connection that requires review and trust in Codex. Optional
+  Bark or SMTP notifications report confirmed quota resets; credentials use Keychain.
+- 重排额度、任务和设置界面，默认显示任务列表；精简常驻说明，保留可访问的信息入口。
+  重置和覆盖自定义灯效前显示确认，颜色输入增加应用按钮和格式提示。
+- 调整窗口大小后保持所选灯效可见；再次点击当前预设不会重置自定义参数。
+- 增加任务卡片、系统通知和分类提示音；权限／问题 Hooks 需主动连接并在 Codex
+  中审阅、信任。可选 Bark 或 SMTP 额度重置通知，凭据保存在钥匙串。
+
+The public download is ad-hoc signed and not Apple-notarized. Local source builds
+can keep a pinned development certificate; switching between signatures may require
+Input Monitoring authorization again. 公开下载包采用 ad-hoc 签名且未公证；
+本机源码构建可固定开发证书，签名身份切换可能需要重新授权输入监控。
+
+### Persistent local signing identity (2026-10-24)
 
 - Pin an available local Apple certificate for builds and packaging. Preserve widget
   entitlements and reject incompatible signed updates or silent ad-hoc fallback.
@@ -8,7 +32,7 @@
 - 固定本机签名证书，构建、安装和打包检查身份兼容性，避免普通更新反复要求输入监控授权。
   证书不可用时停止，不静默改回临时签名；首次迁移可能需要最后授权一次。
 
-## Unreleased — time-range usage history (2026-10-23)
+### Time-range usage history (2026-10-23)
 
 - Persist Credit balances and timestamped local task counters. Explore custom time
   ranges with zoom, drag selection, quota/Credit/Token charts, task filters and
@@ -17,7 +41,7 @@
 - 新增 Credit 历史、任务 Token 增量与平均速度；支持自定义起止时间、缩放、拖选时段、
   指标切换与任务筛选。余额下降与补充独立统计，保留未知数据及原有历史。
 
-## Unreleased — event sounds (2026-10-23)
+### Event sounds (2026-10-23)
 
 - Choose from 14 macOS sounds or Silent independently for completion, questions,
   approvals, failures, interruptions and confirmed quota resets. Preview each choice,
@@ -25,9 +49,9 @@
 - 为完成、问答、审批、失败、中断及已确认额度重置分别选择 14 种音效或静音，
   支持逐项试听与保存；同批事件优先播放需要处理的提醒，保留声音总开关。
 
-## Unreleased — usage analytics and customizable desktop panels (2026-09-30)
+### Usage analytics and customizable desktop panels (2026-09-30)
 
-### English
+#### English
 
 - **Task usage and comparisons:** Show cumulative task tokens with input, output
   and cached-input details when available. Sort tasks by token usage in either
@@ -62,7 +86,7 @@ current service, so Pulse does not estimate them. Stale or missing balances rema
 unknown; a confirmed zero remains zero. Reset success/error/retry paths are tested
 with mocks; no real voucher was consumed during development verification.
 
-### 中文
+#### 中文
 
 - **任务用量与对比：**显示任务累计 Token，以及可获得的输入、输出和缓存输入明细。
   支持按用量升序／降序排列，也可切换交互式条形图；搜索和状态筛选同步生效。
@@ -87,12 +111,11 @@ with mocks; no real voucher was consumed during development verification.
 费用或 Credit 总量，因此不估算任务费用或余额比例。未知／过期数据不显示为零，
 确认的零余额仍显示 0。重置成功、失败和重试路径使用模拟测试；开发验证未消耗真实重置券。
 
-## Unreleased — desktop surfaces (2026-09-26)
+### Desktop surfaces (2026-09-26)
 
-These changes are available in the source branch. The latest packaged download is
-still [v2.1.3](https://github.com/QiushanHuang/Codex-Pulse/releases/tag/v2.1.3).
+These desktop changes are included in the 2.2.0 download.
 
-### Added
+#### Added
 
 - Three sticky sizes: a quota ring with a saved **40–160-point diameter**, a narrower
   **220-point Compact** card, and the existing Standard card.
@@ -111,7 +134,7 @@ still [v2.1.3](https://github.com/QiushanHuang/Codex-Pulse/releases/tag/v2.1.3).
   sticky mode, widgets and keyboard controls remain available; the sidebar is off
   by default and ring clicks default to no expansion.
 
-### Fixed
+#### Fixed
 
 - Real mouse dragging on the mini ring, including small rings and edge hits. Drawing
   and mouse handling share one native view; transparent corners are excluded.
@@ -123,10 +146,9 @@ still [v2.1.3](https://github.com/QiushanHuang/Codex-Pulse/releases/tag/v2.1.3).
   extension timelines. `python3 scripts/install_macos.py --repair-widget` repairs
   registration without replacing the app or clearing other widgets.
 
-### 中文
+#### 中文
 
-以上更新已进入源码分支；当前公开下载包仍为
-[v2.1.3](https://github.com/QiushanHuang/Codex-Pulse/releases/tag/v2.1.3)。
+以上桌面功能已包含在 2.2.0 下载包中。
 
 - **三种便签尺寸：**迷你圆环支持保存 40–160 点直径，紧凑便签收窄至 220 点，标准便签保留。
 - **圆环右键菜单：**直接调整大小滑块、预设尺寸、置顶、模式与窗口操作；圆环内部和边缘均可拖动。

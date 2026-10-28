@@ -144,20 +144,37 @@ struct AmbientSettingsView:View {
                 Picker("亮度布局",selection:Binding(get:{model.preferences.ambientProfile},set:{model.setPreference(\.ambientProfile,$0);model.setPreference(\.ambientZones,[:])})){ForEach(catalog.profiles.keys.sorted(),id:\.self){id in Text(catalog.profiles[id]!.name).tag(id)}}
             }
             if preset?.category == "loop" || preset?.category == "reactive" {
-                HStack {Text("循环 / 响应时长");Slider(value:Binding(get:{model.preferences.ambientPeriod},set:{model.setPreference(\.ambientPeriod,$0)}),in:1...(preset?.category == "reactive" ? 8:24),step:0.2);Text("\(model.preferences.ambientPeriod,specifier:"%.1f") 秒").monospacedDigit()}
-                if ["heat","trail"].contains(preset?.effect ?? "") {Text("热图与足迹在 8 秒内衰减，时长滑块不影响这两项。").font(.caption).foregroundStyle(.secondary)}
+                HStack {
+                    Text("循环 / 响应时长")
+                    if ["heat","trail"].contains(preset?.effect ?? "") {
+                        PulseInfo(title:"响应时长",message:"热图与足迹在 8 秒内衰减，时长滑块不影响这两项。")
+                    }
+                    Slider(value:Binding(get:{model.preferences.ambientPeriod},set:{model.setPreference(\.ambientPeriod,$0)}),in:1...(preset?.category == "reactive" ? 8:24),step:0.2) {
+                        Text("循环或响应时长")
+                    }.labelsHidden()
+                        .accessibilityLabel("循环或响应时长")
+                    Text("\(model.preferences.ambientPeriod,specifier:"%.1f") 秒").monospacedDigit()
+                }
             }
             DisclosureGroup("八个分区亮度"){
                 ForEach(catalog.zones){zone in
                     let value=model.preferences.ambientZones[zone.id] ?? catalog.profiles[model.preferences.ambientProfile]?.values[zone.id] ?? 1
-                    HStack {Text(zone.name).frame(width:120,alignment:.leading);Slider(value:Binding(get:{value},set:{newValue in var zones=model.preferences.ambientZones;zones[zone.id]=newValue;model.setPreference(\.ambientZones,zones)}),in:0...1,step:0.01);Text("\(value*100,specifier:"%.0f")%").monospacedDigit().frame(width:40)}
+                    HStack {
+                        Text(zone.name).frame(width:120,alignment:.leading)
+                        Slider(value:Binding(get:{value},set:{newValue in var zones=model.preferences.ambientZones;zones[zone.id]=newValue;model.setPreference(\.ambientZones,zones)}),in:0...1,step:0.01) {
+                            Text(zone.name+"亮度")
+                        }.labelsHidden().accessibilityLabel(zone.name+"亮度")
+                        Text("\(value*100,specifier:"%.0f")%").monospacedDigit().frame(width:40)
+                    }
                 }
             }
             if !compactControls { AmbientKeyboardView(enabled:model.preferences.ambientEnabled && model.lightingActive,expectedDeviceKey:model.selectedDeviceKey) }
             if preset?.category == "reactive" {
-                Toggle("响应普通键盘输入",isOn:Binding(get:{model.preferences.ambientInputEnabled},set:{model.setPreference(\.ambientInputEnabled,$0)}))
+                HStack {
+                    Toggle("响应普通键盘输入",isOn:Binding(get:{model.preferences.ambientInputEnabled},set:{model.setPreference(\.ambientInputEnabled,$0)}))
+                    PulseInfo(title:"按键响应",message:"按键事件仅在内存中短暂保留，不记录文字。实体 G1–G5 独立按下事件暂不支持；主键输入可驱动 G 区，点击 G 键帽可测试反向联动。Secure Input 下系统可能暂停输入通知。")
+                }
                 InputAuthorizationView()
-                Text("按键事件仅在内存中短暂保留，不记录文字。实体 G1–G5 独立按下事件暂不支持；主键输入可驱动 G 区，点击 G 键帽可测试反向联动。Secure Input 下系统可能暂停输入通知。").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

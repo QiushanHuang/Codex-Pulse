@@ -55,7 +55,9 @@ struct AmbientDesignPreview:View {
                                 .background(Color(red:c[0],green:c[1],blue:c[2]),in:RoundedRectangle(cornerRadius:3))
                                 .overlay(RoundedRectangle(cornerRadius:3).stroke(.gray.opacity(key.protected ? 0.25:0.7),lineWidth:0.6))
                         }.buttonStyle(.plain).disabled(key.protected || paused)
+                            .allowsHitTesting(preset?.category == "reactive")
                             .accessibilityLabel(key.label+(key.protected ? " 功能区占位":" 模拟按键"))
+                            .accessibilityHidden(key.protected || preset?.category != "reactive")
                             .offset(x:(key.x+1.7)*scale,y:key.y*scale)
                     }}
                 }.aspectRatio(24.8/6.5,contentMode:.fit).frame(width:previewWidth,height:previewWidth.map{$0*6.5/24.8})
@@ -74,8 +76,11 @@ struct AmbientDesignPreview:View {
                     }.controlSize(.small).disabled(paused)
                 }
             }
-            Text(renderer.available ? "设计预览 · 功能区为占位；点击键帽仅模拟画面，不发送按键。":"预览引擎不可用，请检查应用资源。")
-                .font(.caption).foregroundStyle(.secondary)
+            if !renderer.available {
+                Text("预览引擎不可用，请检查应用资源。").font(.caption).foregroundStyle(.secondary)
+            } else if preset?.category == "reactive" {
+                Text("点击键帽只模拟画面，不发送按键。").font(.caption).foregroundStyle(.secondary)
+            }
         }.background(PreviewVisibility {visible=$0}).onDisappear {visible=false}
         .onChange(of:model.preferences.ambientPreset){_,_ in events=[];reactiveAnimating=false}
         .task(id:settleAt) {

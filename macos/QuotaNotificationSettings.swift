@@ -90,7 +90,10 @@ struct QuotaNotificationSettings:View {
     private let statusTimer=Timer.publish(every:5,on:.main,in:.common).autoconnect()
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("额度重置通知").font(.headline)
+            HStack {
+                Text("额度重置通知").font(.headline)
+                PulseInfo(title:"额度重置通知",message:"地址密钥和邮箱授权码存入 macOS 钥匙串。Mac 联网且 Pulse 监控运行时发送；首次开启不补发旧事件。外部重置根据重置券减少及额度提前恢复识别，仅额度回升不会通知。")
+            }
             Toggle("额度重置后通知手机",isOn:$preferences.enabled)
             Picker("接收方式",selection:$preferences.channel) {
                 Text("手机推送 · Bark").tag("push")
@@ -101,36 +104,44 @@ struct QuotaNotificationSettings:View {
                 Toggle("每周自然重置",isOn:$preferences.weekly)
             }
             Toggle("使用重置券后通知（含 Tibo 等外部入口）",isOn:$preferences.manual)
-            Text("外部重置根据未到期券减少及额度提前恢复识别；仅额度回升不会通知。")
-                .font(.caption).foregroundStyle(.secondary)
             if preferences.channel == "push" {
-                SecureField("完整 HTTPS Bark 地址（含设备密钥）",text:$pushURL)
-                Text("从 iPhone Bark App 复制完整推送地址，也可填自建服务地址。留空保留已保存地址。")
-                    .font(.caption).foregroundStyle(.secondary)
+                LabeledContent("Bark 地址") {
+                    SecureField("完整 HTTPS 地址；留空保留已保存地址",text:$pushURL)
+                        .accessibilityLabel("Bark 推送地址")
+                        .help("从 Bark 复制含设备密钥的完整 HTTPS 地址，也可使用自建服务。")
+                }
             } else {
-                TextField("SMTP 主机",text:$preferences.smtpHost)
+                LabeledContent("SMTP 主机") {
+                    TextField("例如 smtp.example.com",text:$preferences.smtpHost).accessibilityLabel("SMTP 主机")
+                }
                 HStack {
-                    TextField("端口",text:$preferences.smtpPort).frame(width:100)
+                    LabeledContent("端口") {
+                        TextField("端口",text:$preferences.smtpPort).accessibilityLabel("SMTP 端口").frame(width:100)
+                    }
                     Picker("加密",selection:$preferences.smtpTLS) {
                         Text("SSL / TLS").tag("ssl");Text("STARTTLS").tag("starttls")
                     }.onChange(of:preferences.smtpTLS) {_,value in preferences.smtpPort=value=="ssl" ? "465":"587"}
                 }
-                TextField("登录用户名（留空使用发件邮箱）",text:$preferences.smtpUser)
-                TextField("发件邮箱",text:$preferences.sender)
-                TextField("收件邮箱",text:$preferences.recipient)
-                SecureField("邮箱授权码 / 应用专用密码",text:$password)
-                Text("授权码留空保留已保存值。请在手机邮件 App 中开启新邮件通知。")
-                    .font(.caption).foregroundStyle(.secondary)
+                LabeledContent("登录用户名") {
+                    TextField("留空使用发件邮箱",text:$preferences.smtpUser).accessibilityLabel("SMTP 登录用户名")
+                }
+                LabeledContent("发件邮箱") {
+                    TextField("发件邮箱",text:$preferences.sender).accessibilityLabel("发件邮箱")
+                }
+                LabeledContent("收件邮箱") {
+                    TextField("收件邮箱",text:$preferences.recipient).accessibilityLabel("收件邮箱")
+                }
+                LabeledContent("邮箱授权码") {
+                    SecureField("留空保留已保存值",text:$password).accessibilityLabel("邮箱授权码或应用专用密码")
+                }
             }
             HStack {
-                Button("保存设置") {save()}
-                Button("保存并测试发送") {if save(testing:true) {test()}}
+                Button("保存设置") {save()}.buttonStyle(.borderedProminent)
+                Button("保存并发送测试") {if save(testing:true) {test()}}
                 if busy {ProgressView().controlSize(.small)}
             }.disabled(busy)
             if let notice {Text(notice).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)}
             if !deliveryStatus.isEmpty {Text(deliveryStatus).font(.caption).foregroundStyle(.secondary)}
-            Text("地址密钥和邮箱授权码存入 macOS 钥匙串。Mac 联网且 Pulse 监控运行时发送；首次开启不补发旧事件。测试会实际发送一条消息。")
-                .font(.caption).foregroundStyle(.secondary)
         }.textFieldStyle(.roundedBorder)
         .onAppear {preferences=model.quotaNotificationPreferences;refreshStatus()}
         .onReceive(statusTimer) {_ in refreshStatus()}

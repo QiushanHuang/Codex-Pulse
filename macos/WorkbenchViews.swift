@@ -36,10 +36,7 @@ struct WorkbenchShell: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "waveform.path").font(.system(size: 25, weight: .semibold)).foregroundStyle(pulseMint)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Codex Pulse").font(.system(size: 20, weight: .semibold))
-                    Text("额度有数，进度可见。").font(.caption).foregroundStyle(.secondary)
-                }
+                Text("Codex Pulse").font(.system(size: 20, weight: .semibold))
             }.padding(.horizontal, 20).padding(.top, 30).padding(.bottom, 32)
             navigationGroup("Codex 工作台", routes: [.overview, .tasks, .quota])
             Divider().padding(.horizontal, 20).padding(.vertical, 23)
@@ -122,11 +119,11 @@ struct WorkbenchShell: View {
 
 private struct WorkbenchHeader: View {
     let title: String
-    let subtitle: String
+    var info: String? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
             Text(title).font(.system(size: 29, weight: .bold))
-            Text(subtitle).font(.callout).foregroundStyle(.secondary)
+            if let info { PulseInfo(title: title, message: info) }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -164,10 +161,17 @@ private struct WorkbenchOverview: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 27) {
-                WorkbenchHeader(title: "工作总览", subtitle: "\(Date().formatted(.dateTime.locale(Locale(identifier:"zh_CN")).month().day().weekday(.wide)))  ·  本机")
+                WorkbenchHeader(title: "工作总览")
                 quotaSummary
-                CreditBalanceLine(snapshot:model.snapshot)
-                AccountUsageSummary(snapshot:model.snapshot)
+                HStack(spacing: 24) {
+                    overviewValue("Credit 余额", value: model.snapshot.credits?.display(fresh:!model.snapshot.stale) ?? "—", color:pulseCredit)
+                    Divider()
+                    overviewValue("可用重置次数", value: model.snapshot.stale ? "—" : model.snapshot.resetCredits.map { "\($0) 次" } ?? "—", color:pulseMint)
+                    Divider()
+                    AccountUsageSummary(snapshot:model.snapshot)
+                        .frame(maxWidth: .infinity)
+                }.padding(18).fixedSize(horizontal: false, vertical: true)
+                    .background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
                 HStack(spacing: 14) {
                     metric("运行中", value: model.snapshot.activeCount, symbol: "bolt", color: pulseMint)
                     metric("需要关注", value: attentionCount, symbol: "exclamationmark.circle", color: .orange)
@@ -209,7 +213,7 @@ private struct WorkbenchOverview: View {
                     HStack(spacing: 14) {
                         Image(systemName: "keyboard").font(.title2).foregroundStyle(pulseMint)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(model.selectedDevice?.name ?? (model.selectedDeviceKey != nil ? "所选设备暂不可用" : "让键盘同步工作状态")).font(.headline)
+                            Text(model.selectedDevice?.name ?? (model.selectedDeviceKey != nil ? "所选设备暂不可用" : "键盘联动")).font(.headline)
                             Text(deviceSummary).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -224,7 +228,7 @@ private struct WorkbenchOverview: View {
         if model.deviceInventory.isStale() { return "设备状态待刷新；Codex 工作台可独立使用" }
         if let selected = model.selectedDeviceKey, model.deviceInventory.activeKey == selected { return model.snapshot.keyboard.message }
         if model.selectedDeviceKey != nil { return "已保留设备选择 · \(model.lighting ? "等待联动" : "灯光关闭")" }
-        return "键盘联动可选 · 从已验证的设备开始"
+        return "尚未选择设备"
     }
     private func metric(_ title: String, value: Int, symbol: String, color: Color) -> some View {
         HStack(spacing: 12) {
@@ -235,6 +239,12 @@ private struct WorkbenchOverview: View {
             }
             Spacer(minLength: 0)
         }.padding(17).frame(maxWidth: .infinity).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
+    }
+    private func overviewValue(_ title:String, value:String, color:Color) -> some View {
+        VStack(alignment:.leading,spacing:6) {
+            Text(title).font(.system(size:12)).foregroundStyle(.secondary)
+            Text(value).font(.system(size:28,weight:.semibold,design:.rounded)).monospacedDigit().foregroundStyle(color)
+        }.frame(maxWidth:.infinity,alignment:.leading)
     }
     private var quotaSummary: some View {
         HStack(spacing: 23) {
@@ -256,10 +266,8 @@ private struct WorkbenchOverview: View {
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            VStack(spacing: 10) {
-                Button("查看任务") { model.route = .tasks }.buttonStyle(.borderedProminent)
-                Button("额度详情") { model.route = .quota }.buttonStyle(.bordered)
-            }.controlSize(.large)
+            Button("查看额度") { model.route = .quota }
+                .buttonStyle(.bordered).controlSize(.large)
         }.padding(24).frame(minHeight: 146).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -297,14 +305,12 @@ struct TaskUsageComparison:View {
         VStack(alignment:.leading,spacing:12) {
             HStack {
                 Label("任务 Token 用量对比",systemImage:"chart.bar.xaxis").font(.headline)
+                PulseInfo(title: "用量对比", message: "显示会话累计 Token；所有条形从零开始，使用相同比例。未提供的用量不会按零计算。")
                 Spacer(minLength:4)
                 Text("\(comparison.knownCount) 项可比较").font(.caption).foregroundStyle(.secondary)
             }
-            Text("会话累计用量 · 所有条形从 0 起，按同一比例绘制")
-                .font(.caption).foregroundStyle(.secondary)
             if comparison.missingCount>0 {
-                Text("\(comparison.missingCount) 项未提供用量，以「未提供」标注。")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("\(comparison.missingCount) 项用量未提供").font(.caption).foregroundStyle(.secondary)
             }
             ScrollView {
                 LazyVStack(spacing:8) {
@@ -350,13 +356,13 @@ private struct WorkbenchTaskPage: View {
     @Binding var selectedID: String?
     @State private var query = ""
     @State private var filter: TaskStatusFilter = .all
-    @State private var sort:TaskSortOrder = .tokensDescending
-    @State private var showComparison=true
+    @State private var sort:TaskSortOrder = .activity
+    @State private var showComparison=false
     private var tasks: [PulseTask] { WorkbenchTasks.filtered(model.snapshot.tasks, query: query, filter: filter, sort:sort) }
     private var selectedTask: PulseTask? { tasks.first { $0.id == selectedID } }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            WorkbenchHeader(title: "任务", subtitle: "本机最近 30 个未归档会话")
+            WorkbenchHeader(title: "任务", info: "显示本机最近 30 个未归档会话。轮次结束表示本次回复结束，不代表任务目标已验收。")
             WorkbenchTaskFreshness(snapshot: model.snapshot)
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 15) {
@@ -380,7 +386,7 @@ private struct WorkbenchTaskPage: View {
                         Picker("任务展示方式",selection:$showComparison) {
                             Text("列表").tag(false)
                             Text("用量对比").tag(true)
-                        }.pickerStyle(.segmented).labelsHidden().frame(width:160)
+                        }.pickerStyle(.segmented).labelsHidden().frame(width:160).accessibilityLabel("任务展示方式")
                     }
                     if !showComparison {
                         HStack {
@@ -411,7 +417,7 @@ private struct WorkbenchTaskPage: View {
                         }.listStyle(.plain).scrollContentBackground(.hidden)
                     }
                     HStack {
-                        Text("\(tasks.count) 个会话"); Spacer(); Text(sort.title)
+                        Text("\(tasks.count) 个会话"); Spacer()
                     }.font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity)
                 Divider()
@@ -427,47 +433,37 @@ private struct WorkbenchTaskPage: View {
     @ViewBuilder private var taskDetail: some View {
         if let task = selectedTask {
             ScrollView {
-                VStack(alignment: .leading, spacing: 21) {
+                VStack(alignment: .leading, spacing: 17) {
                     Text(task.title.isEmpty ? "未命名任务" : task.title).font(.title2.weight(.semibold)).textSelection(.enabled)
                     WorkbenchTaskBadge(task: task)
+                    Button { model.openTask(task) } label: {
+                        Label("在 Codex 中打开", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity)
+                    }.buttonStyle(.borderedProminent).controlSize(.large).disabled(WorkbenchTasks.taskURL(for: task) == nil)
+                    if WorkbenchTasks.taskURL(for: task) == nil {
+                        Text("缺少可用的会话标识，无法直接打开。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Divider()
+                    HStack {
+                        Text("会话用量").font(.headline)
+                        PulseInfo(title: "会话用量", message: "Token 为此会话累计用量，含重复输入及缓存输入；任务 Credit 无法由 Token 或账号余额变化准确换算。")
+                    }
                     detailLine("累计 Token", value: task.tokensUsed.map { $0.formatted() } ?? "未提供")
                     detailLine("输入 Token", value: task.inputTokens.map { $0.formatted() } ?? "未提供")
                     detailLine("输出 Token", value: task.outputTokens.map { $0.formatted() } ?? "未提供")
                     detailLine("缓存输入", value: task.cachedInputTokens.map { $0.formatted() } ?? "未提供")
                     detailLine("消耗 Credit", value: "服务未提供")
-                    Text("Token 为此会话累计用量，含重复输入及缓存输入；任务 Credit 无法由 Token 或账号余额变化准确换算。")
-                        .font(.caption).foregroundStyle(.secondary)
-                    detailLine("来源", value: "本机 Codex")
+                    Divider()
                     detailLine("最近活动", value: workbenchDate(task.at, includeYear: true))
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("会话 ID").font(.caption).foregroundStyle(.secondary)
+                    DisclosureGroup("会话 ID") {
                         Text(task.id).font(.system(.caption, design: .monospaced)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     }
-                    Button { model.openTask(task) } label: {
-                        Label("在 Codex 中打开", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity)
-                    }.buttonStyle(.bordered).controlSize(.large).disabled(WorkbenchTasks.taskURL(for: task) == nil)
-                    if WorkbenchTasks.taskURL(for: task) == nil {
-                        Text("当前记录缺少可用的会话标识，无法直接定位。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if task.status == "completed" {
-                        Text("轮次结束表示这次回复已结束，不代表整个任务目标已经完成。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Divider()
-                    Label("键盘联动", systemImage: "keyboard").font(.headline)
-                    Text(model.selectedDevice?.name ?? "尚未选择设备").font(.callout)
-                    Text(model.deviceInventory.isStale() ? "设备状态待刷新" : model.snapshot.keyboard.message).font(.caption).foregroundStyle(.secondary)
-                    Button("查看设备") { model.route = .devices }.buttonStyle(.plain).foregroundStyle(pulseMint)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "sidebar.right").font(.title2).foregroundStyle(.secondary)
                 Text("选择一个任务").font(.headline)
-                Text("查看状态、最近活动，并跳转到 Codex 继续工作。")
-                    .font(.callout).foregroundStyle(.secondary)
                 Spacer()
             }
         }
@@ -483,22 +479,24 @@ private struct WorkbenchQuotaPage: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    WorkbenchHeader(title: "额度与用量", subtitle: "套餐额度、Credit 余额与重置券分开展示")
+                    HStack {
+                        WorkbenchHeader(title: "额度与用量")
+                        Button {model.requestQuotaRefresh()} label: {Label("刷新额度",systemImage:"arrow.clockwise")}
+                            .buttonStyle(.bordered)
+                            .disabled(!model.running || model.resetBusy || Date().timeIntervalSince1970-model.quotaRefreshRequestedAt<5)
+                    }
                     if let error = model.snapshot.quotaError {
                         WorkbenchNotice(message: "额度更新失败：\(error)", symbol: "exclamationmark.triangle")
                     } else if model.snapshot.stale {
                         WorkbenchNotice(message: "额度数据已过期。下方保留最近一次采样，不能代表当前剩余额度。", symbol: "clock")
                     }
-                    QuotaResetCard(model:model)
-                    UsageTimelineView(snapshot:model.snapshot)
-                    AccountUsageHistory(snapshot:model.snapshot)
                     if model.snapshot.windows.isEmpty {
-                        WorkbenchEmptyState(title: "等待额度数据", detail: "确认 Codex 已登录，后台会定期刷新额度。未知额度不会显示为 0。", symbol: "chart.xyaxis.line")
+                        WorkbenchEmptyState(title: "等待额度数据", detail: "登录 Codex 后等待采样。", symbol: "chart.xyaxis.line")
                     } else if model.snapshot.windows.count == 1, let quota = model.snapshot.windows.first {
                         quotaCard(quota, expanded: true)
                     } else {
                         // Never reserve empty adaptive columns. At compact widths each window gets a complete row.
-                        let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 18), count: geometry.size.width >= 936 ? 2 : 1)
+                        let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 18), count: geometry.size.width >= 740 ? 2 : 1)
                         LazyVGrid(columns: columns, spacing: 18) {
                             ForEach(model.snapshot.windows) { quota in quotaCard(quota, expanded: false) }
                         }
@@ -509,6 +507,9 @@ private struct WorkbenchQuotaPage: View {
                         Spacer()
                         if let credits = model.snapshot.resetCredits { Text("重置券 \(credits) 张").foregroundStyle(.secondary) }
                     }.font(.callout)
+                    QuotaResetCard(model:model)
+                    AccountUsageHistory(snapshot:model.snapshot)
+                    UsageTimelineView(snapshot:model.snapshot)
                     let resets = Array(model.snapshot.events.filter { $0.kind == "reset" }.suffix(5).reversed())
                     if !resets.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
@@ -518,8 +519,6 @@ private struct WorkbenchQuotaPage: View {
                             }
                         }.padding(20).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
                     }
-                    Text("趋势来自本机已采样数据；预计重置时间由服务返回，实际变化以之后采样为准。")
-                        .font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(28)
             }
         }
@@ -551,13 +550,19 @@ private struct WorkbenchQuotaPage: View {
                         Text(quota.name).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    QuotaRing(remaining: quota.remaining, stale: model.snapshot.stale, size: 75, credits:model.snapshot.credits,resetCredits:model.snapshot.resetCredits)
+                    VStack(alignment:.trailing,spacing:4) {
+                        Text("\(quota.remaining, specifier: "%.0f")%")
+                            .font(.system(size:32,weight:.semibold,design:.rounded)).monospacedDigit()
+                            .foregroundStyle(model.snapshot.stale ? Color.secondary:pulseMint)
+                        Text(model.snapshot.stale ? "历史剩余":"剩余").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             Divider()
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("近一小时额度趋势").font(.headline)
+                    PulseInfo(title: "额度趋势", message: "趋势来自本机采样；预计重置时间由服务返回，实际变化以之后采样为准。近期消耗速度与耗尽时间均为估算。")
                     Spacer()
                     Text("\(quota.history.count) 个采样点").font(.caption).foregroundStyle(.secondary)
                 }
@@ -612,9 +617,11 @@ private struct WorkbenchDevicesPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .top) {
-                WorkbenchHeader(title: "设备", subtitle: "选择用于状态联动的键盘 · 同时联动一台设备")
-                Button { model.rescanDevices() } label: { Label("查找设备", systemImage: "arrow.clockwise") }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
+                WorkbenchHeader(title: "设备", info: "一次联动一台键盘。可发现不代表可控制，仅已验证型号、连接方式和布局可启用联动。")
+                if !inventory.devices.isEmpty {
+                    Button { model.rescanDevices() } label: { Label("查找设备", systemImage: "arrow.clockwise") }
+                        .buttonStyle(.bordered).controlSize(.large)
+                }
             }
             if inventory.isStale() {
                 WorkbenchNotice(message: "设备列表尚未刷新。请查找设备，连接与接管状态以新发现结果为准。", symbol: "clock")
@@ -637,19 +644,13 @@ private struct WorkbenchDevicesPage: View {
                     if let device = inspected { deviceDetail(device).frame(maxWidth: .infinity, maxHeight: .infinity) }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Text("可被发现不代表可控制。仅在型号、连接方式与键位布局经过验证后开放联动。")
-                .font(.caption).foregroundStyle(.secondary)
         }.padding(28)
     }
     private var noDevices: some View {
         VStack(spacing: 18) {
-            WorkbenchEmptyState(title: "还没有发现键盘", detail: "Codex 工作台不依赖键盘。需要联动时，请连接兼容设备并打开 Logitech G HUB。", symbol: "keyboard")
-            VStack(alignment: .leading, spacing: 13) {
-                Label("在 G HUB 中确认设备在线", systemImage: "1.circle")
-                Label("使用已验证的 LIGHTSPEED 或有线连接", systemImage: "2.circle")
-                Label("返回此页，点击“查找设备”", systemImage: "3.circle")
-            }.font(.callout).foregroundStyle(.secondary)
-            Button("返回工作总览") { model.route = .overview }.buttonStyle(.bordered)
+            WorkbenchEmptyState(title: "还没有发现键盘", detail: "连接兼容键盘并打开 Logitech G HUB。", symbol: "keyboard")
+            Button { model.rescanDevices() } label: { Label("查找设备", systemImage: "arrow.clockwise") }
+                .buttonStyle(.borderedProminent).controlSize(.large)
             Spacer()
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -750,32 +751,34 @@ private struct WorkbenchRulesPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                WorkbenchHeader(title: "联动规则", subtitle: "把工作状态变成清晰的键盘提示")
+                WorkbenchHeader(title: "联动规则")
                 WorkbenchDeviceContext(model: model)
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rules, id: \.0) { trigger, zone, effect in
-                        HStack(spacing: 14) {
-                            Text(trigger).font(.callout.weight(.medium)).frame(width: 130, alignment: .leading)
-                            Image(systemName: "arrow.right").font(.caption).foregroundStyle(.tertiary)
-                            Text(zone).font(.callout).frame(width: 120, alignment: .leading)
-                            Text(effect).font(.callout).foregroundStyle(.secondary)
-                            Spacer(minLength: 0)
-                        }.padding(.vertical, 13)
-                        if trigger != rules.last?.0 { Divider() }
-                    }
-                }.padding(.horizontal, 18).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
                 if model.selectedDevice?.isVerified == true, model.selectedDevice?.layoutId != nil {
                     LightingPanel(model: model).padding(20).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
                     DisclosureGroup("亮度与省电", isExpanded: $showBrightness) {
                         LightSettingsSheet(model: model, embedded: true).padding(.top, 18)
                     }.padding(20).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
                 } else {
-                    WorkbenchEmptyState(title: "选择设备后配置联动", detail: "每种布局都有自己的可用区域。选择已验证设备后，会显示匹配的配置；Codex 工作台始终可用。", symbol: "keyboard")
+                    WorkbenchEmptyState(title: "选择设备后配置联动", detail: "选择已验证的键盘开始配置。", symbol: "keyboard")
                     HStack {
                         Button("选择设备") { model.route = .devices }.buttonStyle(.borderedProminent)
                         Button("浏览灯效") { model.route = .studio }.buttonStyle(.bordered)
                     }.frame(maxWidth: .infinity)
                 }
+                DisclosureGroup("状态与灯光对应") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(rules, id: \.0) { trigger, zone, effect in
+                            HStack(spacing: 14) {
+                                Text(trigger).font(.callout.weight(.medium)).frame(width: 130, alignment: .leading)
+                                Image(systemName: "arrow.right").font(.caption).foregroundStyle(.tertiary)
+                                Text(zone).font(.callout).frame(width: 120, alignment: .leading)
+                                Text(effect).font(.callout).foregroundStyle(.secondary)
+                                Spacer(minLength: 0)
+                            }.padding(.vertical, 13)
+                            if trigger != rules.last?.0 { Divider() }
+                        }
+                    }.padding(.top, 8)
+                }.padding(20).background(workbenchSurface, in: RoundedRectangle(cornerRadius: 12))
             }.padding(28)
         }
     }

@@ -8,33 +8,39 @@ struct TaskReminderSettings:View {
     @ObservedObject var reminders:TaskNotificationController
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("任务提醒").font(.headline)
-            Text("通知方式").font(.subheadline)
+            HStack {
+                Text("任务提醒").font(.headline)
+                PulseInfo(title:"任务提醒",message:"点击卡片或系统通知可打开对应任务。卡片从屏幕侧边滑入，不抢走输入焦点；完成提醒无需连接 Codex Hooks。")
+            }
             Picker("通知方式",selection:Binding(get:{model.notificationPreferences.delivery},set:{mode in
                 var preferences=model.notificationPreferences;preferences.delivery=mode
                 model.saveNotificationPreferences(["systemEnabled":preferences.systemEnabled,"cardsEnabled":preferences.cardsEnabled])
             })) {
                 ForEach(NotificationDelivery.allCases){mode in Text(mode.label).tag(mode)}
             }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("通知方式")
-            Text(model.notificationPreferences.delivery.detail).font(.caption).foregroundStyle(.secondary)
             Toggle("提醒提示音",isOn:Binding(get:{model.notificationPreferences.soundEnabled},set:{model.saveNotificationPreferences(["soundEnabled":$0])}))
                 .disabled(model.notificationPreferences.delivery == .off)
-            ForEach(ReminderEvent.allCases) {event in
-                HStack {
-                    Text(event.label).frame(width:85,alignment:.leading)
-                    Picker(event.label,selection:Binding(get:{model.notificationPreferences.sound(for:event)},set:{sound in
-                        var selections=model.notificationPreferences.soundSelections
-                        selections[event.rawValue]=sound.rawValue
-                        model.saveNotificationPreferences(["soundSelections":selections])
-                    })) {
-                        ForEach(ReminderSound.allCases) {sound in Text(sound.label).tag(sound)}
-                    }.labelsHidden().accessibilityLabel(event.label+"提示音")
-                    Button("试听") {reminders.previewSound(model.notificationPreferences.sound(for:event))}
-                        .disabled(model.notificationPreferences.sound(for:event) == .silent)
-                        .accessibilityLabel("试听"+event.label+"提示音")
+            DisclosureGroup("各类提示音") {
+                VStack(alignment:.leading,spacing:10) {
+                    ForEach(ReminderEvent.allCases) {event in
+                        HStack {
+                            Text(event.label).frame(width:85,alignment:.leading)
+                            Picker(event.label,selection:Binding(get:{model.notificationPreferences.sound(for:event)},set:{sound in
+                                var selections=model.notificationPreferences.soundSelections
+                                selections[event.rawValue]=sound.rawValue
+                                model.saveNotificationPreferences(["soundSelections":selections])
+                            })) {
+                                ForEach(ReminderSound.allCases) {sound in Text(sound.label).tag(sound)}
+                            }.labelsHidden().accessibilityLabel(event.label+"提示音")
+                            Button("试听") {reminders.previewSound(model.notificationPreferences.sound(for:event))}
+                                .disabled(model.notificationPreferences.sound(for:event) == .silent)
+                                .accessibilityLabel("试听"+event.label+"提示音")
+                        }
+                    }
+                    Text("试听不受提示音总开关限制。").font(.caption).foregroundStyle(.secondary)
                 }
-            }
-            Text("每类事件可独立选音或静音，试听不受总开关限制。同时到来的提醒优先播放失败、审批、问答提示音；音量跟随当前输出。").font(.caption).foregroundStyle(.secondary)
+                .padding(.top,8)
+            }.help("每类事件可独立选音或静音；同时到来的提醒优先播放失败、审批、问答提示音。")
             if let notice=reminders.soundNotice {Text(notice).font(.caption).foregroundStyle(.orange)}
             if model.notificationPreferences.systemEnabled {
                 HStack {
@@ -46,10 +52,11 @@ struct TaskReminderSettings:View {
                     }
                 }
             }
-            Text("轮次结束会提示；点击卡片或通知可进入对应任务。侧边卡片在事件发生时短暂滑入，跟随侧边栏的屏幕和方向，不抢走输入焦点。").font(.caption).foregroundStyle(.secondary)
+            Text("连接会备份并修改 ~/.codex/hooks.json；还需在 Codex 中审阅并信任。不会代你授权或回答。")
+                .font(.caption).foregroundStyle(.secondary)
             Button(model.hookConnectionBusy ? "正在连接…":"连接 Codex 权限与问题提醒") {model.connectTaskSignals()}
                 .disabled(model.hookConnectionBusy)
-            Text("连接会备份并添加 ~/.codex/hooks.json，需要在 Codex 的 Hooks 中审阅、信任。只传递任务 ID 和状态，不会代你授权或回答。完成提醒不需要此连接。").font(.caption).foregroundStyle(.secondary)
+                .help("只传递任务 ID 和状态；完成提醒不需要此连接。")
             if let notice=model.hookNotice {Text(notice).font(.caption).foregroundStyle(.orange)}
             if model.notificationPreferences.cardsEnabled {
                 Button("预览 Pulse 卡片") {

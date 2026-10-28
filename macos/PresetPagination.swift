@@ -5,6 +5,7 @@ struct PresetPagination: Equatable {
     private(set) var itemCount: Int
     private(set) var pageSize: Int
     private(set) var page: Int
+    private var revealedIndex: Int?
     var pageCount: Int { itemCount == 0 ? 0 : (itemCount - 1) / pageSize + 1 }
     var visibleRange: Range<Int> {
         let start = min(itemCount, page * pageSize)
@@ -14,18 +15,27 @@ struct PresetPagination: Equatable {
         self.itemCount = max(0, itemCount)
         self.pageSize = min(8, max(3, pageSize))
         self.page = 0
+        self.revealedIndex = nil
         move(to: page)
     }
     mutating func update(itemCount: Int, pageSize: Int, resetPage: Bool = false) {
         let anchor = visibleRange.lowerBound
+        let visibleSelection = revealedIndex.flatMap { visibleRange.contains($0) ? $0 : nil }
         self.itemCount = max(0, itemCount)
         self.pageSize = min(8, max(3, pageSize))
-        move(to: resetPage ? 0 : anchor / self.pageSize)
+        if resetPage || (revealedIndex ?? 0) >= self.itemCount { revealedIndex = nil }
+        let position = visibleSelection.flatMap { $0 < self.itemCount ? $0 : nil } ?? anchor
+        move(to: resetPage ? 0 : position / self.pageSize)
     }
     mutating func move(to page: Int) { self.page = max(0, min(max(0, pageCount - 1), page)) }
     mutating func next() { if page < pageCount - 1 { page += 1 } }
     mutating func previous() { if page > 0 { page -= 1 } }
-    mutating func reveal(index: Int) { move(to: max(0, min(max(0, itemCount - 1), index)) / pageSize) }
+    mutating func reveal(index: Int) {
+        guard itemCount > 0 else { revealedIndex = nil; move(to: 0); return }
+        let target = max(0, min(itemCount - 1, index))
+        revealedIndex = target
+        move(to: target / pageSize)
+    }
     /// Rows are 62 points tall with 8 points between them; the caller reserves fixed browser controls first.
     static func pageSize(availableHeight: Double) -> Int {
         guard availableHeight.isFinite else { return 3 }

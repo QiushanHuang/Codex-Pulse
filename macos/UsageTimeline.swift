@@ -73,10 +73,25 @@ struct UsageTimelineView:View {
     }
     private var requestKey:String {"\(snapshot.accountKey ?? ""):\(window.start.timeIntervalSince1970):\(window.end.timeIntervalSince1970):\(taskID)"}
     private var filteredTasks:[UsageTaskSummary] {(report?.tasks ?? []).filter{taskSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(taskSearch)}}
+    private var historyExplanation:String {
+        var message="Credit 为当前账号余额的观测变化，下降与补充独立记录，不能分摊任务费用。本机 Token 来自已记录任务的累计差值，不等于账号全部用量。仅统计完整落在所选时段内的相邻记录；首条累计值不计消耗，跨边界增量不插值。图表空白不代表零用量，可拖动选取时段或用按钮缩放。"
+        if let report {
+            if let since=report.accountRecordedFrom {
+                message += "\n\nCredit 记录始于 \(Date(timeIntervalSince1970:since).formatted(date:.abbreviated,time:.shortened))；更早的余额无法补录。监控暂停期间会留下采样间隔。"
+            } else {
+                message += "\n\n尚无 Credit 历史；至少两次有效采样才能计算消耗。"
+            }
+            if let since=report.taskRecordedFrom {
+                message += "\n\n本机 Token 记录始于 \(Date(timeIntervalSince1970:since).formatted(date:.abbreviated,time:.shortened))；既有会话仅恢复可读元数据范围内的记录。"
+            }
+        }
+        return message
+    }
     var body:some View {
         VStack(alignment:.leading,spacing:18) {
             HStack {
                 Label("时段分析",systemImage:"chart.xyaxis.line").font(.title3.weight(.semibold))
+                PulseInfo(title:"时段分析",message:historyExplanation)
                 Spacer()
                 if loader.busy {ProgressView().controlSize(.small)}
                 Button("刷新",systemImage:"arrow.clockwise") {reload()}.disabled(loader.busy)
@@ -109,16 +124,6 @@ struct UsageTimelineView:View {
                 Text(TimeZone.current.abbreviation() ?? TimeZone.current.identifier)
             }.font(.caption).foregroundStyle(.secondary)
             taskTable
-            Text("Credit 为当前账号余额的观测变化，下降与补充独立记录，不能据此分摊任务费用。本机 Token 来自已记录任务的累计差值，不包含未被本机观察到的任务，也不等于账号全部用量。仅统计完整落在所选时段内的相邻记录；首条累计值不计消耗，跨边界的增量不插值。")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-            if let since=report?.accountRecordedFrom {
-                Text("Credit 记录始于 \(Date(timeIntervalSince1970:since).formatted(date:.abbreviated,time:.shortened))；更早的余额无法补录。监控暂停期间会留下采样间隔。").font(.caption).foregroundStyle(.secondary)
-            } else if !loader.busy {
-                Text("尚无 Credit 历史。监控运行并收到新余额后开始记录；至少两次有效采样才能计算消耗。").font(.caption).foregroundStyle(.secondary)
-            }
-            if let since=report?.taskRecordedFrom {
-                Text("本机 Token 记录始于 \(Date(timeIntervalSince1970:since).formatted(date:.abbreviated,time:.shortened))；既有会话仅恢复可读元数据范围内的记录。").font(.caption).foregroundStyle(.secondary)
-            }
         }.padding(20).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:16))
         .task(id:requestKey) {
             guard fixture==nil else{return}
@@ -223,8 +228,6 @@ struct UsageTimelineView:View {
             .frame(height:220)
             .overlay {if points.isEmpty {Text(loader.busy ? "正在查询…":"此时段暂无可绘制的记录").font(.callout).foregroundStyle(.secondary).allowsHitTesting(false)}}
             .accessibilityLabel(metric.title+"时间趋势")
-            Text(metric == .tokenRate ? "速度按时间桶内已记录的 Token 增量折算为每分钟。拖动图表选取时段，或使用上方按钮缩放；悬停可查看采样值。":"拖动图表选取时段，或使用上方按钮缩放；悬停可查看采样值。空白不代表零用量。")
-                .font(.caption).foregroundStyle(.secondary)
             if (report?.credit.gaps ?? 0)>0 {Text("所选时段包含较长采样间隔，Credit 下降保留为区间观测，不推测其发生时刻或实时速度。").font(.caption).foregroundStyle(.orange)}
         }
     }
@@ -239,6 +242,7 @@ struct UsageTimelineView:View {
         VStack(alignment:.leading,spacing:10) {
             HStack {
                 Text("任务消耗与速度").font(.headline)
+                PulseInfo(title:"任务消耗与速度",message:"点击任务可查看其时间分布。任务速度为时段内已记录增量除以首末采样间隔，包含等待和空闲；单次采样显示 —。图表速度按时间桶内已记录的增量折算为每分钟。")
                 Spacer()
                 TextField("搜索任务",text:$taskSearch).textFieldStyle(.roundedBorder).frame(maxWidth:220)
             }
@@ -262,7 +266,6 @@ struct UsageTimelineView:View {
                 }.padding(.vertical,5)
             }
             if filteredTasks.count>50 {Text("显示前 50 项；可搜索指定任务。").font(.caption).foregroundStyle(.secondary)}
-            Text("任务速度＝时段内已记录增量 ÷ 首末采样间隔，包含等待和空闲；单次采样显示 —。点击任务可查看其时间分布。").font(.caption).foregroundStyle(.secondary)
         }
     }
     private func applyPreset(_ value:String) {

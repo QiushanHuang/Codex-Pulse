@@ -50,19 +50,25 @@ struct AccountUsageSummary:View {
     private var today:UsagePeriodRow {UsagePeriod.daily.rows(usage:snapshot.usage)[0]}
     private var week:UsagePeriodRow {UsagePeriod.weekly.rows(usage:snapshot.usage)[0]}
     var body:some View {
-        HStack(spacing:compact ? 12:24) {
-            metric("今日 Token",row:today)
-            Divider()
-            metric("本周 Token",row:week)
+        VStack(alignment:.leading,spacing:5) {
+            if snapshot.usageStale {
+                Text("用量待更新").font(.caption).foregroundStyle(.orange)
+            }
+            HStack(spacing:compact ? 12:24) {
+                metric("今日 Token",row:today)
+                Divider()
+                metric("本周 Token",row:week)
+            }.opacity(snapshot.usageStale ? 0.65:1)
         }.fixedSize(horizontal:false,vertical:true)
-            .opacity(snapshot.usageStale ? 0.65:1)
             .help("账号用量来自服务每日记录，本周从周一开始；未返回日期不填零。\(snapshot.usageStale ? "当前为历史采样。":"")")
     }
     private func metric(_ title:String,row:UsagePeriodRow)->some View {
         VStack(alignment:.leading,spacing:compact ? 3:6) {
             Text(title).font(.system(size:compact ? 10:12)).foregroundStyle(.secondary)
             Text(row.formattedTokens).font(.system(size:compact ? 17:28,weight:.semibold,design:.rounded)).monospacedDigit()
-            if !compact {Text("已报告 \(row.reportedDays)/\(row.expectedDays) 天").font(.caption).foregroundStyle(.secondary)}
+            if !compact && row.reportedDays < row.expectedDays {
+                Text("已报告 \(row.reportedDays)/\(row.expectedDays) 天").font(.caption).foregroundStyle(.secondary)
+            }
         }.frame(maxWidth:.infinity,alignment:.leading)
     }
 }
@@ -75,7 +81,8 @@ struct AccountUsageHistory:View {
     var body:some View {
         VStack(alignment:.leading,spacing:16) {
             HStack {
-                Label("用量统计",systemImage:"chart.bar.xaxis").font(.headline)
+                Label("账号 Token 用量",systemImage:"chart.bar.xaxis").font(.headline)
+                PulseInfo(title:"账号 Token 用量",message:"来自服务的每日记录，每 5 分钟刷新。日期保留服务口径；周一至周日汇总，当前周截至今天。未报告日期显示 —，周合计只包含已报告天数。Token 不是 Credit，也不是套餐剩余额度。")
                 Spacer()
                 Picker("统计周期",selection:$period) {
                     ForEach(UsagePeriod.allCases) {Text($0.title).tag($0)}
@@ -104,12 +111,10 @@ struct AccountUsageHistory:View {
                     .help(row.tokens.map{"\(row.id) · \($0.formatted()) tokens"} ?? "该日期暂无服务记录")
             }
             HStack {
-                Text("账号级 Token · 服务每日记录 · 每 5 分钟刷新")
+                Text("最近采样")
                 Spacer()
                 if let at=snapshot.usageAt,at>0 {Text(Date(timeIntervalSince1970:at),style:.time)}
             }.font(.caption).foregroundStyle(.secondary)
-            Text("日期保留服务口径；周一至周日汇总，当前周截至今天。未报告日期显示 —，周合计只包含已报告天数。Token 不是 Credit，也不是套餐剩余额度。")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }.padding(20).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:16))
     }
 }
